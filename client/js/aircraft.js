@@ -30,7 +30,7 @@ export const AIRCRAFT = {
     lex: { points: [[0.55, -3.6], [0.78, -1.0], [0.78, 0.2], [0.6, 0.2]], y: -0.05 },
     stab: { points: [[0.6, 3.4], [2.7, 4.5], [2.7, 5.0], [0.6, 5.2]], y: 0 },
     tails: { profile: [[1.6, 0.5], [4.2, 3.6], [5.0, 3.6], [5.1, 0.5]], x: [0], cant: 0 },
-    intakes: [{ shape: 'smile', x: 0, y: -0.8, w: 1.1, h: 0.62, z0: -3.0, z1: 0.8, rake: 0.4, taper: 0.8, drop: -0.3 }],
+    intakes: [{ shape: 'smile', x: 0, y: -0.66, w: 0.88, h: 0.48, z0: -2.8, z1: 0.6, rake: 0.32, taper: 0.85, drop: 0.2 }],
     nozzles: [{ x: 0, z: 5.4, r: 0.55 }],
     rails: [[4.6, -0.1, 1.6]]
   },
@@ -41,7 +41,7 @@ export const AIRCRAFT = {
     wing: { points: [[1.0, -1.6], [5.0, 2.2], [5.0, 2.8], [1.0, 3.6]], y: -0.05 },
     stab: { points: [[1.0, 3.4], [3.1, 4.9], [3.1, 5.4], [1.0, 5.6]], y: 0 },
     tails: { profile: [[1.0, 0.3], [3.4, 2.7], [4.1, 2.7], [3.9, 0.3]], x: [-1.4, 1.4], cant: 0.47 },
-    intakes: [{ shape: 'caret', x: 1.32, y: -0.05, w: 0.66, h: 0.82, z0: -3.1, z1: 0.6, rake: 0.55, rakeX: 0.45, taper: 0.75, blend: 0.4 }],
+    intakes: [{ shape: 'caret', x: 1.02, y: -0.06, w: 0.48, h: 0.62, z0: -3.0, z1: 0.4, rake: 0.45, rakeX: 0.3, taper: 0.8, blend: 0.3 }],
     nozzles: [{ x: -0.55, z: 5.1, r: 0.45, square: true }, { x: 0.55, z: 5.1, r: 0.45, square: true }]
   },
 
@@ -52,7 +52,7 @@ export const AIRCRAFT = {
     lex: { points: [[0.5, -4.0], [1.05, -0.4], [1.05, 0.4], [0.8, 0.4]], y: -0.02 },
     stab: { points: [[0.8, 3.6], [2.9, 4.6], [2.9, 5.1], [0.8, 5.3]], y: 0 },
     tails: { profile: [[1.0, 0.4], [2.8, 2.9], [3.5, 2.9], [3.6, 0.4]], x: [-1.0, 1.0], cant: 0.35 },
-    intakes: [{ shape: 'd', x: 1.02, y: -0.4, w: 0.56, h: 0.66, z0: -1.3, z1: 1.2, rake: 0.3, taper: 0.8, blend: 0.3 }],
+    intakes: [{ shape: 'd', x: 0.84, y: -0.42, w: 0.42, h: 0.5, z0: -1.2, z1: 1.0, rake: 0.25, taper: 0.85, blend: 0.25 }],
     nozzles: [{ x: -0.5, z: 5.0, r: 0.45 }, { x: 0.5, z: 5.0, r: 0.45 }],
     rails: [[4.6, -0.1, 1.4]]
   },
@@ -63,7 +63,7 @@ export const AIRCRAFT = {
     wing: { points: [[1.2, -1.0], [5.6, 1.7], [5.6, 2.6], [1.2, 3.0]], y: 0.05 },
     stab: { points: [[1.1, 3.6], [3.4, 4.7], [3.4, 5.3], [1.1, 5.5]], y: 0 },
     tails: { profile: [[1.8, 0.4], [4.5, 3.4], [5.1, 3.4], [5.2, 0.4]], x: [-1.35, 1.35], cant: 0 },
-    intakes: [{ shape: 'rounded', x: 1.42, y: 0.0, w: 0.82, h: 0.98, z0: -2.8, z1: 1.2, rake: -0.65, taper: 0.85, blend: 0.35 }],
+    intakes: [{ shape: 'rounded', x: 1.18, y: 0.0, w: 0.62, h: 0.8, z0: -2.7, z1: 1.0, rake: -0.5, taper: 0.9, blend: 0.3 }],
     nozzles: [{ x: -0.65, z: 5.3, r: 0.5 }, { x: 0.65, z: 5.3, r: 0.5 }],
     rails: [[3.2, -0.35, 1.0]]
   },
@@ -74,8 +74,8 @@ export const AIRCRAFT = {
     glove: { points: [[0.8, -2.6], [2.4, -0.6], [2.4, 1.2], [0.8, 1.6]], y: 0.1 },
     pancake: { points: [[0.7, -1.4], [1.6, -1.4], [1.6, 4.8], [0.5, 4.8]], y: -0.05 }, // flat body between the engines
     swing: { points: [[0, -0.2], [4.4, 1.5], [4.4, 2.2], [0, 1.4]], pivot: [2.3, 0.15, -0.1], min: 0.15, max: 0.9 },
-    nacelles: [{ x: 1.55, z0: -2.4, z1: 4.6, r: 0.62 }],
-    intakes: [{ shape: 'rounded', x: 1.55, y: 0.05, w: 0.98, h: 1.08, z0: -3.4, z1: -1.4, rake: -0.6, taper: 0.95 }],
+    nacelles: [{ x: 1.55, z0: -1.9, z1: 4.6, r: 0.5 }],
+    intakes: [{ shape: 'rounded', x: 1.55, y: 0.0, w: 1.0, h: 1.0, z0: -3.3, z1: -1.7, rake: -0.5, taper: 1.0 }],
     stab: { points: [[1.6, 3.8], [4.0, 5.0], [4.0, 5.6], [1.6, 5.8]], y: 0 },
     tails: { profile: [[2.0, 0.5], [4.2, 3.1], [4.9, 3.1], [5.0, 0.5]], x: [-1.55, 1.55], cant: 0.1 },
     nozzles: [{ x: -1.55, z: 5.0, r: 0.52 }, { x: 1.55, z: 5.0, r: 0.52 }],
@@ -106,6 +106,15 @@ function finGeometry(profile, t) {
   geo.rotateY(-Math.PI / 2);  // outline's x becomes z, thickness becomes x
   geo.translate(t / 2, 0, 0);
   return geo;
+}
+
+/** Body radius at position z (from the [radius, z] profile). */
+function radiusAt(profile, z) {
+  for (let i = 0; i < profile.length - 1; i++) {
+    const [r0, z0] = profile[i], [r1, z1] = profile[i + 1];
+    if (z >= z0 && z <= z1) return r0 + (r1 - r0) * ((z - z0) / (z1 - z0));
+  }
+  return profile[profile.length - 1][0];
 }
 
 /** Round body from [radius, z] pairs, squashed sideways (sx) and up/down (sy). */
@@ -209,14 +218,14 @@ function intakeGeometry(it, side) {
   const back = it.taper ?? 0.85;
   const bx = -(it.blend ?? 0) * side, by = it.drop ?? 0;
   const shell = loft([
-    ring(0.82, it.z0 + 0.04, true),             // inner edge of the lip
+    ring(0.88, it.z0 + 0.03, true),             // inner edge of the lip
     ring(1.0, it.z0, true),                     // front of the lip
-    ring(1.07, it.z0 + 0.22, true),             // lip bulges out slightly...
+    ring(1.02, it.z0 + 0.16, true),             // lip rounds over a touch...
     ring(1.0, it.z0 + len * 0.35, false),       // ...then the duct runs back
     ring(back, it.z1, false, bx, by)            // and narrows into the body
   ]);
   const deep = ring(0.7, it.z0 + 0.9, false);
-  const inside = loft([ring(0.82, it.z0 + 0.04, true), ring(0.76, it.z0 + 0.45, false), deep]);
+  const inside = loft([ring(0.88, it.z0 + 0.03, true), ring(0.8, it.z0 + 0.45, false), deep]);
   const wall = cap(deep);
   return { shell, inside, wall };
 }
@@ -240,9 +249,11 @@ export function buildAircraft(spec, mats) {
   // Fuselage + canopy
   const f = spec.fuselage;
   add(bodyGeometry(f.profile, f.sx, f.sy), 'body');
+  // Canopy: placed on the real top of the body at that point, so only its upper part shows.
   const c = spec.canopy;
-  const canopy = add(new THREE.SphereGeometry(0.5, 8, 6), 'glass', 0, c.y, c.z);
-  canopy.scale.set(c.width * 2, c.height * 2, c.length);
+  const top = radiusAt(f.profile, c.z) * f.sy;
+  const canopy = add(new THREE.SphereGeometry(0.5, 10, 6), 'glass', 0, top - c.height * 0.05, c.z);
+  canopy.scale.set(c.width * 1.35, c.height * 0.85, c.length);
 
   // Flat surfaces (each side)
   const plate = (part, t, mat = 'body') => {

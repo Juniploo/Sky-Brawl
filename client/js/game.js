@@ -22,6 +22,7 @@ import { MissileView } from './missiles.js';
 import { Scoreboard } from './scoreboard.js';
 
 const MOUSE_SENSITIVITY = 0.0022;
+const POINTER_TURN_SPEED = 1.8;   // pointer-aim mode: radians/second at the screen edge
 const CAMERA_DISTANCE = 22;
 const CAMERA_HEIGHT = 5;
 const SEND_EVERY = 2;          // send inputs every 2 steps (30 times a second)
@@ -405,6 +406,14 @@ export class NetGame {
   update(dt) {
     const now = performance.now();
     const { dx, dy } = this.input.consumeMouse();
+    if (this.alive && this.input.enabled && this.input.pointerMode) {
+      // Pointer-aim mode (no mouse lock here): steer toward where the pointer is on screen.
+      const o = this.input.pointerOffset();
+      const dead = 0.06; // small middle zone = fly straight
+      const curve = (v) => Math.sign(v) * Math.max(0, Math.abs(v) - dead) / (1 - dead);
+      this.aim.yaw -= curve(o.x) * POINTER_TURN_SPEED * dt;
+      this.aim.pitch = THREE.MathUtils.clamp(this.aim.pitch - curve(o.y) * POINTER_TURN_SPEED * 0.8 * dt, -1.35, 1.35);
+    }
     if (this.alive) {
       this.aim.yaw -= dx * MOUSE_SENSITIVITY;
       this.aim.pitch = THREE.MathUtils.clamp(this.aim.pitch - dy * MOUSE_SENSITIVITY, -1.35, 1.35);
@@ -491,7 +500,9 @@ export class NetGame {
     const hud = this.hud;
     const me = this.roster.get(this.myId);
     const alive = this.alive;
-    hud.setAim(alive ? this.toScreen(_b.copy(this.renderPos).addScaledVector(this.aimDir, 600)) : null);
+    const pointerAim = this.input.pointerMode && this.input.enabled && this.input.mouseInside;
+    hud.setAim(!alive ? null : pointerAim ? { x: this.input.mx, y: this.input.my }
+      : this.toScreen(_b.copy(this.renderPos).addScaledVector(this.aimDir, 600)));
     hud.setBoresight(alive ? this.toScreen(_b.copy(this.renderPos).addScaledVector(this.plane.forward, 600)) : null);
 
     if (!alive && this.respawnAt) {

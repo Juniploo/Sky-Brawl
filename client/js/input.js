@@ -43,7 +43,12 @@ export class Input {
     addEventListener('mousemove', (e) => {
       this.dx += e.movementX || 0;
       this.dy += e.movementY || 0;
+      this.mx = e.clientX;
+      this.my = e.clientY;
+      this.mouseInside = true;
     });
+    // Pointer left the window: in pointer-aim mode the plane then just flies straight.
+    document.addEventListener('mouseout', (e) => { if (!e.relatedTarget) this.mouseInside = false; });
 
     document.addEventListener('pointerlockchange', () => {
       const wasLocked = this.locked;
@@ -83,11 +88,20 @@ export class Input {
    * in a real browser the mouse always stays locked inside the game.
    */
   detectLockSupport() {
-    try {
-      const p = this.element.requestPointerLock();
-      if (p && p.catch) p.catch((err) => { if (err?.name === 'WrongDocumentError') this.lockBlocked = true; });
-      // A real browser refuses this (no click yet), so nothing gets locked.
-    } catch { /* old browser: assume lock works */ }
+    // The Claude app's browser pane names itself "Claude/..." and can never lock the mouse.
+    if (/\bClaude\//.test(navigator.userAgent)) this.lockBlocked = true;
+  }
+
+  /**
+   * Pointer-aim mode, used where the mouse can't be locked: the aim circle sits on the
+   * mouse pointer, and the plane turns toward it (pointer far from the centre = turn fast,
+   * pointer in the middle = fly straight). Returns the pointer's offset from the screen
+   * centre as -1..1, or 0/0 when the pointer is outside the window.
+   */
+  get pointerMode() { return this.lockBlocked && !this.locked; }
+  pointerOffset() {
+    if (!this.mouseInside || this.mx === undefined) return { x: 0, y: 0 };
+    return { x: (this.mx - innerWidth / 2) / (innerWidth / 2), y: (this.my - innerHeight / 2) / (innerHeight / 2) };
   }
 
   releaseLock() {
@@ -97,7 +111,7 @@ export class Input {
   consumeMouse() {
     // Only a locked mouse steers, so a free cursor never moves your aim.
     // (If this browser blocks locking completely, we steer with the hidden cursor instead.)
-    const d = this.enabled && this.aiming ? { dx: this.dx, dy: this.dy } : { dx: 0, dy: 0 };
+    const d = this.enabled && this.locked ? { dx: this.dx, dy: this.dy } : { dx: 0, dy: 0 };
     this.dx = this.dy = 0;
     return d;
   }
