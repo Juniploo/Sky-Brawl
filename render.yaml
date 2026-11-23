@@ -1,0 +1,11 @@
+# Render.com "Blueprint": tells Render how to run Sky Brawl.
+# On render.com choose New + -> Blueprint, pick this repository, and press Apply.
+services:
+  - type: web
+    name: sky-brawl
+    runtime: node
+    plan: free            # free tier: sleeps after ~15 min with no players, wakes in ~1 min
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true      # every push to GitHub updates the live game

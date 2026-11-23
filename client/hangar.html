@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Sky Brawl — Hangar</title>
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #9fd0f0; font-family: 'Segoe UI', sans-serif; }
+    #info { position: fixed; top: 12px; left: 0; right: 0; text-align: center; color: #fff; text-shadow: 0 1px 3px #0008; }
+    #info h1 { margin: 0; font-size: 26px; }
+    #labels { position: fixed; bottom: 18px; left: 0; right: 0; display: flex; justify-content: space-around; color: #fff; font-weight: 800; text-shadow: 0 1px 3px #0008; }
+  </style>
+  <script type="importmap">{ "imports": { "three": "/vendor/three/build/three.module.js" } }</script>
+</head>
+<body>
+  <div id="info"><h1>Hangar</h1>Every plane in shared/planes.js, built from client/js/aircraft.js. Drag to spin.</div>
+  <div id="labels"></div>
+  <script type="module">
+    import * as THREE from 'three';
+    import { PLANES } from '/shared/planes.js';
+    import { buildJetModel, updateJetFlame } from './js/jetModel.js';
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    document.body.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x9fd0f0);
+    scene.add(new THREE.HemisphereLight(0xdff4ff, 0x6a7a8a, 1.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 2);
+    sun.position.set(5, 10, 4);
+    scene.add(sun);
+    const camera = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 1, 500);
+
+    const keys = Object.keys(PLANES);
+    const colors = [0x9aa3ad, 0x7d8590, 0xa7b0b8, 0x8b949c, 0xb3bcc4];
+    const gap = 16;
+    const models = keys.map((key, i) => {
+      const m = buildJetModel(colors[i % colors.length], key);
+      m.position.x = (i - (keys.length - 1) / 2) * gap;
+      scene.add(m);
+      const label = document.createElement('div');
+      label.textContent = PLANES[key].name;
+      document.getElementById('labels').appendChild(label);
+      return m;
+    });
+    const width = keys.length * gap;
+    camera.position.set(0, width * 0.45, width * 0.75);
+    camera.lookAt(0, 0, 0);
+
+    let spin = 0.6, dragging = false, lastX = 0, t = 0;
+    addEventListener('pointerdown', (e) => { dragging = true; lastX = e.clientX; });
+    addEventListener('pointerup', () => { dragging = false; });
+    addEventListener('pointermove', (e) => { if (dragging) { spin += (e.clientX - lastX) * 0.01; lastX = e.clientX; } });
+    addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
+
+    (function frame() {
+      requestAnimationFrame(frame);
+      t += 0.016;
+      if (!dragging) spin += 0.004;
+      const throttle = (Math.sin(t * 0.7) + 1) / 2; // F-14 wings sweep back and forth
+      for (const m of models) { m.rotation.y = spin; updateJetFlame(m, throttle, false); }
+      renderer.render(scene, camera);
+    })();
+    window.hangar = { models, camera, setSpin: (v) => { spin = v; } };
+  </script>
+</body>
+</html>
