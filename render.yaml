@@ -2,8 +2,10 @@
 # On render.com choose New + -> Blueprint, pick this repository, and press Apply.
 services:
   - type: web
-    name: sky-brawl
+    name: sky-brawl-eu
     runtime: node
+    region: frankfurt     # close to Europe = lower ping. (Render can't move a service, so
+                          # changing this later means a new service with a new name.)
     plan: free            # free tier: sleeps after ~15 min with no players, wakes in ~1 min
     buildCommand: npm install
     startCommand: npm start
