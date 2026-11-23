@@ -8,8 +8,9 @@ import { AIRCRAFT, buildAircraft } from './aircraft.js';
 
 function materials(color) {
   return {
-    body: new THREE.MeshLambertMaterial({ color, flatShading: true }),
-    dark: new THREE.MeshLambertMaterial({ color: 0x2c2f36, flatShading: true }),
+    body: new THREE.MeshLambertMaterial({ color, flatShading: true, side: THREE.DoubleSide }),
+    dark: new THREE.MeshLambertMaterial({ color: 0x2c2f36, flatShading: true, side: THREE.DoubleSide }),
+    inside: new THREE.MeshLambertMaterial({ color: 0x15171c, flatShading: true, side: THREE.DoubleSide }), // intake tunnels
     light: new THREE.MeshLambertMaterial({ color: 0xf2f2f2, flatShading: true }),
     glass: new THREE.MeshPhongMaterial({ color: 0x3a5f7a, shininess: 140, specular: 0xbfe6ff, flatShading: true }),
     flame: new THREE.MeshBasicMaterial({ color: 0xffa13d, transparent: true, opacity: 0.85 })

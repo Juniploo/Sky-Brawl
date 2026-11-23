@@ -56,7 +56,7 @@
     (function frame() {
       requestAnimationFrame(frame);
       t += 0.016;
-      if (!dragging) spin += 0.004;
+      if (!dragging && !window.hangarPaused) spin += 0.004;
       const throttle = (Math.sin(t * 0.7) + 1) / 2; // F-14 wings sweep back and forth
       for (const m of models) { m.rotation.y = spin; updateJetFlame(m, throttle, false); }
       renderer.render(scene, camera);
