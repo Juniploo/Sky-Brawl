@@ -784,10 +784,10 @@ function setView(v) {
 function placeChase(snap) {
   const r = player.root;
   if (useMouse() && !freeLook) {                    // tight chase camera; you steer by pointing on screen
-    const k = snap === 1 ? 1 : 1 - Math.exp(-snap * 14);
+    const k = snap === 1 ? 1 : 1 - Math.exp(-snap * 10);
     fwd.set(0, 0, 1).applyQuaternion(r.quaternion); jup.set(0, 1, 0).applyQuaternion(r.quaternion);
     v3.copy(r.position).addScaledVector(fwd, -chaseDist).addScaledVector(jup, chaseDist * 0.3);
-    camera.position.lerp(v3, k); camera.up.lerp(jup, snap === 1 ? 1 : 1 - Math.exp(-snap * 5)).normalize();
+    camera.position.lerp(v3, k); camera.up.lerp(jup, snap === 1 ? 1 : 1 - Math.exp(-snap * 4)).normalize();
     camera.lookAt(v3.copy(r.position).addScaledVector(fwd, 60).addScaledVector(jup, 2));
     return;
   }
@@ -815,12 +815,12 @@ function fly(dt) {
     const off = Math.acos(THREE.MathUtils.clamp(L.z, -1, 1));
     const cl = x => THREE.MathUtils.clamp(x, -1, 1);
     const g = sens;
-    if (!(k('up') || k('down'))) pIn = cl(-Math.atan2(L.y, Math.max(L.z, 0.05)) * 6 * g);
-    if (!(k('left') || k('right'))) rIn = off < 0.12 ? cl(-bank * 1.6 - L.x * 9 * g) : cl(Math.atan2(-L.x, L.y) * 2.4 * g);
+    if (!(k('up') || k('down'))) pIn = cl(-Math.atan2(L.y, Math.max(L.z, 0.05)) * 4.8 * g);
+    if (!(k('left') || k('right'))) rIn = off < 0.12 ? cl(-bank * 1.4 - L.x * 7.5 * g) : cl(Math.atan2(-L.x, L.y) * 2.0 * g);
     if (!(k('yl') || k('yr'))) yIn = cl(L.x * 7 * g);
     autoLevel = false;
   }
-  const resp = useMouse() ? 11 : 4.5;            // mouse steering reacts faster
+  const resp = useMouse() ? 7.5 : 4.5;            // mouse steering reacts faster
   st.p = ease(st.p, pIn * H.pitch * auth, resp, dt);
   st.r = ease(st.r, autoLevel ? (Math.abs(bank) < 1.0 ? -bank * 0.4 : 0) : rIn * H.roll * auth, resp, dt);
   st.y = ease(st.y, yIn * 0.3 * auth, resp * 0.7, dt);
