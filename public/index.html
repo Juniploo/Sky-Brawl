@@ -58,8 +58,11 @@ input{width:100%}
 #hud .br{right:16px;bottom:16px;font:600 20px "Barlow Condensed",sans-serif;text-align:right;text-shadow:0 1px 3px #000c;display:grid;gap:2px;justify-items:end}
 .hp{width:220px;height:10px;border-radius:5px;background:#0008;overflow:hidden;margin-top:4px}
 .hp i{display:block;height:100%;background:var(--ok);width:100%}
-.reticle{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border:2px solid #d9ffe0aa;border-radius:50%}
-.reticle::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;background:#d9ffe0;border-radius:50%}
+.aim{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border:2px solid #ffffffcc;border-radius:50%;box-shadow:0 0 3px #0008}
+.reticle{position:absolute;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px}
+.reticle::before,.reticle::after{content:"";position:absolute;background:#d9ffe0;box-shadow:0 0 2px #000}
+.reticle::before{left:12px;top:0;width:2px;height:26px}.reticle::after{left:0;top:12px;width:26px;height:2px}
+.clickhint{position:absolute;left:50%;top:62%;transform:translateX(-50%);font:600 18px Barlow,sans-serif;background:#0009;padding:8px 14px;border-radius:8px;display:none}
 .mk{position:absolute;transform:translate(-50%,-50%);font:600 13px Barlow,sans-serif;text-align:center;white-space:nowrap;text-shadow:0 1px 2px #000}
 .mk i{display:block;margin:0 auto 2px;width:12px;height:12px;border:2px solid currentColor;transform:rotate(45deg)}
 .lockbox{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border:2px solid #ffd34a;display:none}
@@ -146,8 +149,8 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
       </div>
     </div>
     <div class="bottom panel hint">
-      <b>Controls:</b> <kbd>W</kbd>/<kbd>S</kbd> nose down/up · <kbd>A</kbd>/<kbd>D</kbd> roll · <kbd>Q</kbd>/<kbd>E</kbd> rudder · <kbd>R</kbd>/<kbd>F</kbd> throttle ·
-      <kbd>Space</kbd> or left click guns · <kbd>X</kbd> missile (aim at an enemy until the box turns red) · <kbd>Z</kbd> flares · <kbd>T</kbd> cockpit/chase view ·
+      <b>Controls:</b> <b>Mouse</b> steers: point where you want to go and the jet flies there (click the game first) · left click or <kbd>Space</kbd> guns · hold right mouse to look around ·
+      <kbd>R</kbd>/<kbd>F</kbd> throttle · <kbd>W</kbd>/<kbd>S</kbd>/<kbd>A</kbd>/<kbd>D</kbd>/<kbd>Q</kbd>/<kbd>E</kbd> fly by hand · · <kbd>X</kbd> missile (aim at an enemy until the box turns red) · <kbd>Z</kbd> flares · <kbd>T</kbd> cockpit/chase view ·
       right-drag to look · <kbd>G</kbd> gear · <kbd>Tab</kbd> scores · <kbd>Enter</kbd> chat · <kbd>Esc</kbd> menu · <kbd>M</kbd> sound
     </div>
   </div>
@@ -162,7 +165,9 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
     <div class="hp"><i id="hHp"></i></div>
   </div>
   <div class="br"><span id="hGun">GUN 600</span><span id="hMsl">MSL 4</span><span id="hFlr">FLR 6</span><span id="hJet"></span></div>
-  <div class="reticle"></div>
+  <div class="aim" id="aim"></div>
+  <div class="reticle" id="nose"></div>
+  <div class="clickhint" id="clickHint">Click to steer with the mouse</div>
   <div class="lockbox" id="lockbox"></div>
   <div class="pip" id="pip"></div>
   <div class="warn" id="warn"></div>
@@ -177,7 +182,7 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
 
 <div class="center" id="dead"><div class="panel"><div class="big" id="deadTitle">Shot down</div><p id="deadText"></p><p class="muted" id="deadTimer"></p></div></div>
 <div class="center" id="board"><div class="panel" style="min-width:min(560px,92vw)"><h2 id="boardTitle">Scoreboard</h2><table><thead><tr><th>Pilot</th><th>Jet</th><th class="n">Kills</th><th class="n">Deaths</th></tr></thead><tbody id="boardBody"></tbody></table><div class="row" id="boardBtns" style="justify-content:center;margin-top:14px"></div></div></div>
-<div class="center" id="pause"><div class="panel"><h2>Menu</h2><div style="display:grid;gap:10px"><button id="bResume" class="main">Back to the fight</button><button id="bEndMatch">End match for everyone</button><button id="bQuit">Leave match</button></div></div></div>
+<div class="center" id="pause"><div class="panel"><h2>Menu</h2><div style="display:grid;gap:10px"><button id="bResume" class="main">Back to the fight</button><button id="bMouse" aria-pressed="true">Mouse steering: on</button><label class="muted" for="sens">Mouse sensitivity</label><input id="sens" type="range" min="0.3" max="2.5" step="0.1" value="1" style="min-height:32px;padding:0"><button id="bEndMatch">End match for everyone</button><button id="bQuit">Leave match</button></div></div></div>
 <div id="toast"></div>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
@@ -443,7 +448,7 @@ function updateBullets(dt) {
     if (b.life > 1.8 || b.pos.y < groundAt(b.pos.x, b.pos.z)) { b.on = false; tmpM.makeScale(0, 0, 0); tMesh.setMatrixAt(i, tmpM); continue; }
     if (b.hits) {                                     // my bullets check enemies (segment vs sphere)
       for (const o of bulletTargets()) {
-        const c = o.root.position, r = o.info.len * 0.38;
+        const c = o.root.position, r = o.info.len * 0.5;
         seg.subVectors(b.pos, b.prev); const L = seg.length(); seg.divideScalar(L || 1);
         rel.subVectors(c, b.prev); const t = THREE.MathUtils.clamp(rel.dot(seg), 0, L);
         if (rel.addScaledVector(seg, -t).lengthSq() < r * r) {
@@ -591,6 +596,8 @@ const player = { inst: null, root: null, alive: false, hp: 100, ammo: 600, msl: 
 const others = new Map();          // id -> remote pilot
 const missiles = [];               // my missiles
 let view = 'chase', seatIdx = 0, chaseDist = 10, look = { yaw: 0, pitch: -0.24 }, orbit = { yaw: 0, pitch: 0.34 };
+const aimDir = new THREE.Vector3(0, 0, 1);
+let mouseAim = store.get('sb_mouseaim') !== '0', sens = +(store.get('sb_sens') || 1), freeLook = false;
 let deadUntil = 0, deadBy = '', lastSend = 0, gunT = 0, lock = { id: null, t: 0, locked: false }, lastFlare = 0, mslRegen = 0;
 const isEnemy = o => matchCfg && (matchCfg.mode === 'ffa' || o.team !== myTeam);
 
@@ -610,6 +617,7 @@ async function spawnMe(sp) {
   const top = Math.max(groundAt(sp.x, sp.z), ...[-1, 1].map(k => groundAt(sp.x + Math.sin(sp.heading) * 1500 * k, sp.z + Math.cos(sp.heading) * 1500 * k)));
   player.root.position.set(sp.x, top + 650, sp.z);
   player.root.quaternion.setFromAxisAngle(UP, sp.heading);
+  aimDir.set(0, 0, 1).applyQuaternion(player.root.quaternion);
   player.root.visible = true; player.alive = true; player.hp = 100; player.ammo = 600; player.msl = 4; player.flr = 6; mslRegen = 0;
   Object.assign(player.st, { v: 210, thr: 0.5, p: 0, r: 0, y: 0 });
   setGear(player.inst, false, true); updateTiles(sp.x, sp.z, 1e9);
@@ -776,6 +784,13 @@ function setView(v) {
 }
 function placeChase(snap) {
   const r = player.root;
+  if (useMouse() && !freeLook) {                    // camera looks where you point; the jet chases that point
+    const k = snap === 1 ? 1 : 1 - Math.exp(-snap * 10);
+    v3.copy(r.position).addScaledVector(aimDir, -chaseDist * 1.05).addScaledVector(UP, chaseDist * 0.3);
+    camera.position.lerp(v3, k); camera.up.lerp(UP, k).normalize();
+    camera.lookAt(v3.copy(r.position).addScaledVector(aimDir, 400));
+    return;
+  }
   v3.set(0, 0, -chaseDist).applyEuler(new THREE.Euler(orbit.pitch, orbit.yaw, 0, 'YXZ')); v3.y += 1.2;
   const target = v3.applyQuaternion(r.quaternion).add(r.position);
   camera.position.lerp(target, snap === 1 ? 1 : 1 - Math.exp(-snap * 7));
@@ -793,10 +808,22 @@ function fly(dt) {
   st.v = THREE.MathUtils.clamp(st.v, 45, H.vmax + 30);
   const auth = THREE.MathUtils.clamp((st.v - 45) / 140, 0.2, 1);
   const bank = Math.atan2(-right.y, jup.y);
-  const rollIn = k('right') - k('left');
-  st.p = ease(st.p, (k('up') - k('down')) * H.pitch * auth, 4.5, dt);
-  st.r = ease(st.r, rollIn ? rollIn * H.roll * auth : (Math.abs(bank) < 1.0 ? -bank * 0.4 : 0), 4, dt);
-  st.y = ease(st.y, (k('yl') - k('yr')) * 0.3 * auth, 3, dt);
+  let pIn = k('up') - k('down'), rIn = k('right') - k('left'), yIn = k('yl') - k('yr'), autoLevel = !rIn;
+  if (useMouse()) {
+    const lim = 1.25, ang = aimDir.angleTo(fwd);           // keep the aim point within ~70° of the nose
+    if (ang > lim) { aimDir.lerp(fwd, 1 - lim / ang).normalize(); }
+    // Where is the aim point, seen from the jet? (+x = left, +y = up, +z = ahead)
+    const L = v3.copy(aimDir).applyQuaternion(q1.copy(r.quaternion).invert());
+    const off = Math.acos(THREE.MathUtils.clamp(L.z, -1, 1));
+    const cl = x => THREE.MathUtils.clamp(x, -1, 1);
+    if (!(k('up') || k('down'))) pIn = cl(-Math.atan2(L.y, Math.max(L.z, 0.05)) * 3.2);
+    if (!(k('left') || k('right'))) rIn = off < 0.18 ? cl(-bank * 1.4 - L.x * 6) : cl(Math.atan2(-L.x, L.y) * 1.7);
+    if (!(k('yl') || k('yr'))) yIn = cl(L.x * 4);
+    autoLevel = false;
+  }
+  st.p = ease(st.p, pIn * H.pitch * auth, 4.5, dt);
+  st.r = ease(st.r, autoLevel ? (Math.abs(bank) < 1.0 ? -bank * 0.4 : 0) : rIn * H.roll * auth, 4, dt);
+  st.y = ease(st.y, yIn * 0.3 * auth, 3, dt);
   r.rotateX(st.p * dt); r.rotateZ(st.r * dt); r.rotateY(st.y * dt);
   if (st.v < 75) { q1.setFromAxisAngle(v3.copy(right), -(75 - st.v) / 60 * dt); r.quaternion.premultiply(q1); }
   player.vel.copy(fwd).multiplyScalar(st.v);
@@ -883,6 +910,13 @@ function updateHud() {
     el.lastChild.textContent = `${t.name} · ${(d / 1000).toFixed(1)} km${t.hp < 100 ? ' · ' + Math.round(t.hp) + '%' : ''}`;
   }
   for (const el of [...$('markers').children]) if (!seen.has(el.id)) el.remove();
+  // Aim circle (where you point) and nose cross (where the guns fire)
+  if (player.alive && player.root) {
+    const a = toScreen(v3.copy(player.root.position).addScaledVector(aimDir, 1000)), n = toScreen(tv.set(0, 0, 1).applyQuaternion(player.root.quaternion).multiplyScalar(1000).add(player.root.position));
+    $('aim').style.display = useMouse() && a.on ? 'block' : 'none'; $('aim').style.left = a.x + 'px'; $('aim').style.top = a.y + 'px';
+    $('nose').style.display = n.on ? 'block' : 'none'; $('nose').style.left = n.x + 'px'; $('nose').style.top = n.y + 'px';
+  } else { $('aim').style.display = 'none'; $('nose').style.display = 'none'; }
+  $('clickHint').style.display = mouseAim && hasMouse && !locked && !$('pause').classList.contains('on') && player.alive ? 'block' : 'none';
   // Lock box
   const lb = $('lockbox'), lt = lock.id != null && allTargets().find(t => t.id === lock.id);
   if (lt && player.alive) { const s = toScreen(lt.pos); lb.style.display = s.on ? 'block' : 'none'; lb.style.left = s.x + 'px'; lb.style.top = s.y + 'px'; lb.classList.toggle('locked', lock.locked); } else lb.style.display = 'none';
@@ -948,25 +982,56 @@ function showBoard(on) {
   $('board').classList.toggle('on', on);
 }
 renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+const hasMouse = matchMedia('(pointer: fine)').matches;
+let locked = false, pointerXY = null;
+const useMouse = () => mouseAim && hasMouse && view === 'chase' || mouseAim && hasMouse && view === 'cockpit' && locked;
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === renderer.domElement;
+  if (!locked) { mouseFire = false; freeLook = false; }
+});
+function aimBy(dx, dy) {                              // turn the aim direction (yaw around world up, pitch around camera right)
+  const s = 0.0022 * sens;
+  aimDir.applyAxisAngle(UP, -dx * s);
+  const side = v3.crossVectors(aimDir, UP).normalize();
+  const nd = aimDir.clone().applyAxisAngle(side, -dy * s);
+  if (Math.abs(nd.y) < 0.985) aimDir.copy(nd);
+  aimDir.normalize();
+}
 renderer.domElement.addEventListener('pointerdown', e => {
   sfx.unlock(); if (!inMatch) return;
+  if (e.pointerType === 'mouse' && mouseAim && !locked && renderer.domElement.requestPointerLock) {
+    try { const pr = renderer.domElement.requestPointerLock(); if (pr && pr.catch) pr.catch(() => {}); } catch {}
+  }
   if (e.button === 0 && e.pointerType === 'mouse') mouseFire = true;
+  else if (e.button === 2 && e.pointerType === 'mouse') { freeLook = true; drag = { x: e.clientX, y: e.clientY }; }
   else { drag = { x: e.clientX, y: e.clientY }; renderer.domElement.setPointerCapture(e.pointerId); }
 });
+renderer.domElement.addEventListener('mousemove', e => {
+  if (!inMatch || !mouseAim || !hasMouse) return;
+  if (locked && !freeLook) aimBy(e.movementX, e.movementY);
+  else if (locked && freeLook) { orbit.yaw -= e.movementX * 0.005; orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + e.movementY * 0.005, -0.6, 1.4); }
+  else pointerXY = { x: e.clientX, y: e.clientY };          // no pointer lock (e.g. inside an app pane): steer by pointer offset
+});
 renderer.domElement.addEventListener('pointermove', e => {
-  if (!drag) return;
+  if (!drag || locked) return;
   const dx = (e.clientX - drag.x) * 0.005, dy = (e.clientY - drag.y) * 0.005; drag = { x: e.clientX, y: e.clientY };
   if (view === 'cockpit') { look.yaw = THREE.MathUtils.clamp(look.yaw - dx, -2.6, 2.6); look.pitch = THREE.MathUtils.clamp(look.pitch - dy, -1.2, 1.3); }
   else { orbit.yaw -= dx; orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + dy, -0.6, 1.4); }
 });
-addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; drag = null; });
+addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; if (e.button === 2) { freeLook = false; } drag = null; });
+addEventListener('mouseup', e => { if (e.button === 0) mouseFire = false; if (e.button === 2) freeLook = false; });
 renderer.domElement.addEventListener('wheel', e => { if (inMatch && view === 'chase' && player.inst) { e.preventDefault(); chaseDist = THREE.MathUtils.clamp(chaseDist * (e.deltaY > 0 ? 1.1 : 0.9), player.inst.info.len * 0.47, 90); } }, { passive: false });
 for (const b of document.querySelectorAll('#pad button')) {
   const k = b.dataset.k;
   b.addEventListener('pointerdown', e => { e.preventDefault(); if (k === 'msl') launchMissile(); else if (k === 'flr') flares(); else keys.add(k); });
   for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => keys.delete(k));
 }
-$('bResume').onclick = () => $('pause').classList.remove('on');
+$('bResume').onclick = () => { $('pause').classList.remove('on'); if (mouseAim && hasMouse) try { renderer.domElement.requestPointerLock(); } catch {} };
+const syncMouseBtn = () => { $('bMouse').setAttribute('aria-pressed', mouseAim); $('bMouse').textContent = 'Mouse steering: ' + (mouseAim ? 'on' : 'off'); };
+$('bMouse').onclick = () => { mouseAim = !mouseAim; store.set('sb_mouseaim', mouseAim ? '1' : '0'); syncMouseBtn(); if (player.root) aimDir.set(0, 0, 1).applyQuaternion(player.root.quaternion); };
+$('sens').value = sens; $('sens').oninput = e => { sens = +e.target.value; store.set('sb_sens', sens); };
+syncMouseBtn();
+document.addEventListener('pointerlockchange', () => { if (!locked && inMatch && mouseAim && player.alive) { $('bEndMatch').hidden = !(net.practice || (party && party.host === net.id)); $('pause').classList.add('on'); } });
 $('bQuit').onclick = () => { $('pause').classList.remove('on'); if (net.practice) { practice.stop(); return; } send({ t: 'leave' }); leaveToMenu(); };
 $('bEndMatch').onclick = () => { $('pause').classList.remove('on'); if (net.practice) practice.stop(); else send({ t: 'end' }); };
 
@@ -1092,6 +1157,10 @@ renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, now = performance.now();
   if (inMatch) {
     mslUsed = 0;
+    if (mouseAim && hasMouse && !locked && pointerXY && player.alive) {     // fallback without pointer lock
+      const ox = (pointerXY.x - innerWidth / 2) / (innerWidth / 2), oy = (pointerXY.y - innerHeight / 2) / (innerHeight / 2);
+      const dz = v => Math.abs(v) < 0.08 ? 0 : v; aimBy(dz(ox) * 450 * sens * dt, dz(oy) * 450 * sens * dt);
+    }
     if (player.alive && player.root) fly(dt);
     if (player.inst) player.inst.mixer.update(dt);
     if (net.practice) { practice.update(dt); } else updateOthers(dt);
