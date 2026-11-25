@@ -149,8 +149,8 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
       </div>
     </div>
     <div class="bottom panel hint">
-      <b>Controls:</b> <b>Mouse</b> steers: put the pointer where you want to go and the jet flies there · left click or <kbd>Space</kbd> guns · hold right mouse to look around ·
-      <kbd>R</kbd>/<kbd>F</kbd> throttle · <kbd>W</kbd>/<kbd>S</kbd>/<kbd>A</kbd>/<kbd>D</kbd>/<kbd>Q</kbd>/<kbd>E</kbd> fly by hand (move the mouse to switch back) · · <kbd>X</kbd> missile (aim at an enemy until the box turns red) · <kbd>Z</kbd> flares · <kbd>T</kbd> cockpit/chase view ·
+      <b>Controls:</b> <b>Mouse aim</b>: click the game, then move the mouse to swing the circle; the jet flies toward it and the cross shows where the guns point · left click or <kbd>Space</kbd> guns · hold right mouse to look around ·
+      <kbd>R</kbd>/<kbd>F</kbd> throttle · <kbd>W</kbd>/<kbd>S</kbd>/<kbd>A</kbd>/<kbd>D</kbd>/<kbd>Q</kbd>/<kbd>E</kbd> fly by hand · <kbd>X</kbd> missile (aim at an enemy until the box turns red) · <kbd>Z</kbd> flares · <kbd>T</kbd> cockpit/chase view ·
       right-drag to look · <kbd>G</kbd> gear · <kbd>Tab</kbd> scores · <kbd>Enter</kbd> chat · <kbd>Esc</kbd> menu · <kbd>M</kbd> sound
     </div>
   </div>
@@ -167,6 +167,7 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
   <div class="br"><span id="hGun">GUN 600</span><span id="hMsl">MSL 4</span><span id="hFlr">FLR 6</span><span id="hJet"></span></div>
   <div class="aim" id="aim"></div>
   <div class="reticle" id="nose"></div>
+  <div class="clickhint" id="clickHint">Click the game to capture the mouse (Esc releases it)</div>
   <div class="lockbox" id="lockbox"></div>
   <div class="pip" id="pip"></div>
   <div class="warn" id="warn"></div>
@@ -181,7 +182,7 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
 
 <div class="center" id="dead"><div class="panel"><div class="big" id="deadTitle">Shot down</div><p id="deadText"></p><p class="muted" id="deadTimer"></p></div></div>
 <div class="center" id="board"><div class="panel" style="min-width:min(560px,92vw)"><h2 id="boardTitle">Scoreboard</h2><table><thead><tr><th>Pilot</th><th>Jet</th><th class="n">Kills</th><th class="n">Deaths</th></tr></thead><tbody id="boardBody"></tbody></table><div class="row" id="boardBtns" style="justify-content:center;margin-top:14px"></div></div></div>
-<div class="center" id="pause"><div class="panel"><h2>Menu</h2><div style="display:grid;gap:10px"><button id="bResume" class="main">Back to the fight</button><button id="bMouse" aria-pressed="true">Mouse steering: on</button><label class="muted" for="sens">Steering strength</label><input id="sens" type="range" min="0.3" max="2.5" step="0.1" value="1" style="min-height:32px;padding:0"><button id="bEndMatch">End match for everyone</button><button id="bQuit">Leave match</button></div></div></div>
+<div class="center" id="pause"><div class="panel"><h2>Menu</h2><div style="display:grid;gap:10px"><button id="bResume" class="main">Back to the fight</button><button id="bMouse" aria-pressed="true">Mouse steering: on</button><label class="muted" for="sens">Mouse sensitivity</label><input id="sens" type="range" min="0.3" max="2.5" step="0.1" value="1" style="min-height:32px;padding:0"><button id="bEndMatch">End match for everyone</button><button id="bQuit">Leave match</button></div></div></div>
 <div id="toast"></div>
 
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
@@ -642,7 +643,7 @@ async function spawnMe(sp) {
   const top = Math.max(groundAt(sp.x, sp.z), ...[-1, 1].map(k => groundAt(sp.x + Math.sin(sp.heading) * 1500 * k, sp.z + Math.cos(sp.heading) * 1500 * k)));
   player.root.position.set(sp.x, top + 650, sp.z);
   player.root.quaternion.setFromAxisAngle(UP, sp.heading);
-  aimDir.set(0, 0, 1).applyQuaternion(player.root.quaternion);
+  aimDir.set(0, 0, 1).applyQuaternion(player.root.quaternion); aimActive = false;
   player.root.visible = true; player.alive = true; player.hp = 100; player.ammo = 600; player.msl = 4; player.flr = 6; mslRegen = 0;
   Object.assign(player.st, { v: 210, thr: 0.5, p: 0, r: 0, y: 0 });
   setGear(player.inst, false, true); updateTiles(sp.x, sp.z, 1e9);
@@ -809,12 +810,11 @@ function setView(v) {
 }
 function placeChase(snap) {
   const r = player.root;
-  if (useMouse() && !freeLook) {                    // tight chase camera; you steer by pointing on screen
-    const k = snap === 1 ? 1 : 1 - Math.exp(-snap * 10);
-    fwd.set(0, 0, 1).applyQuaternion(r.quaternion); jup.set(0, 1, 0).applyQuaternion(r.quaternion);
-    v3.copy(r.position).addScaledVector(fwd, -chaseDist).addScaledVector(jup, chaseDist * 0.3);
-    camera.position.lerp(v3, k); camera.up.lerp(jup, snap === 1 ? 1 : 1 - Math.exp(-snap * 4)).normalize();
-    camera.lookAt(v3.copy(r.position).addScaledVector(fwd, 60).addScaledVector(jup, 2));
+  if (useMouse() && !freeLook) {                    // mouse aim camera: looks along the aim line, horizon stays level
+    const back = chaseDist * 3.3, up = chaseDist * 0.55;  // well behind and a little above, the jet sits just under the marker
+    camera.position.copy(r.position).addScaledVector(aimDir, -back).addScaledVector(UP, up);
+    camera.up.copy(UP);
+    camera.lookAt(v3.copy(r.position).addScaledVector(aimDir, 800).addScaledVector(UP, up * 0.7));
     return;
   }
   v3.set(0, 0, -chaseDist).applyEuler(new THREE.Euler(orbit.pitch, orbit.yaw, 0, 'YXZ')); v3.y += 1.2;
@@ -836,8 +836,8 @@ function fly(dt) {
   const bank = Math.atan2(-right.y, jup.y);
   let pIn = k('up') - k('down'), rIn = k('right') - k('left'), yIn = k('yl') - k('yr'), autoLevel = !rIn;
   const handFlying = k('up') || k('down') || k('left') || k('right') || k('yl') || k('yr');
-  if (handFlying && pointerXY) pointerXY = null;          // WASD/QE in charge; move the mouse to take it back
-  if (useMouse() && !handFlying && pointerXY) {
+  if (handFlying || !aimActive) aimDir.copy(fwd);           // flying by hand: the marker follows the nose
+  if (useMouse() && !handFlying) {
     // Where is the aim point, seen from the jet? (+x = left, +y = up, +z = ahead)
     const L = v3.copy(aimDir).applyQuaternion(q1.copy(r.quaternion).invert());
     const off = Math.acos(THREE.MathUtils.clamp(L.z, -1, 1));
@@ -848,7 +848,7 @@ function fly(dt) {
     yIn = cl(L.x * 4 * g);
     autoLevel = false;
   }
-  const resp = useMouse() && !handFlying && pointerXY ? 6 : 4.5;
+  const resp = useMouse() && !handFlying ? 6 : 4.5;
   st.p = ease(st.p, pIn * H.pitch * auth, resp, dt);
   st.r = ease(st.r, autoLevel ? (Math.abs(bank) < 1.0 ? -bank * 0.4 : 0) : rIn * H.roll * auth, resp, dt);
   st.y = ease(st.y, yIn * 0.3 * auth, resp * 0.7, dt);
@@ -941,11 +941,12 @@ function updateHud() {
   // Aim circle (where you point) and nose cross (where the guns fire)
   if (player.alive && player.root) {
     const n = toScreen(tv.set(0, 0, 1).applyQuaternion(player.root.quaternion).multiplyScalar(1000).add(player.root.position));
-    $('aim').style.display = useMouse() && pointerXY ? 'block' : 'none'; renderer.domElement.style.cursor = 'none';
-    if (pointerXY) { $('aim').style.left = pointerXY.x + 'px'; $('aim').style.top = pointerXY.y + 'px'; }
+    const a = toScreen(v3.copy(player.root.position).addScaledVector(aimDir, 1000));
+    $('aim').style.display = useMouse() && a.on ? 'block' : 'none'; $('aim').style.left = a.x + 'px'; $('aim').style.top = a.y + 'px';
     $('nose').style.display = n.on ? 'block' : 'none'; $('nose').style.left = n.x + 'px'; $('nose').style.top = n.y + 'px';
   } else { $('aim').style.display = 'none'; $('nose').style.display = 'none'; }
   renderer.domElement.style.cursor = useMouse() && player.alive ? 'none' : 'default';
+  $('clickHint').style.display = useMouse() && !locked && player.alive && !$('pause').classList.contains('on') && document.pointerLockElement !== undefined ? 'block' : 'none';
   // Lock box
   const lb = $('lockbox'), lt = lock.id != null && allTargets().find(t => t.id === lock.id);
   if (lt && player.alive) { const s = toScreen(lt.pos); lb.style.display = s.on ? 'block' : 'none'; lb.style.left = s.x + 'px'; lb.style.top = s.y + 'px'; lb.classList.toggle('locked', lock.locked); } else lb.style.display = 'none';
@@ -1012,27 +1013,39 @@ function showBoard(on) {
 }
 renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 const hasMouse = matchMedia('(pointer: fine)').matches;
-let pointerXY = null;
-const locked = false;
+let locked = false, lastXY = null, aimActive = false;
 const useMouse = () => mouseAim && hasMouse;
-const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-function aimFromPointer() {                           // the jet flies toward whatever is under the mouse pointer
-  if (!pointerXY || freeLook) { aimDir.set(0, 0, 1).applyQuaternion(player.root.quaternion); return; }
-  // Soft response: small dead zone in the middle, gentle near the centre, strong toward the edges
-  const soft = v => { const a = Math.max(0, Math.abs(v) - 0.04) / 0.96; return Math.sign(v) * Math.pow(a, 1.6) * 0.75; };
-  ndc.set(soft(pointerXY.x / innerWidth * 2 - 1), soft(-(pointerXY.y / innerHeight) * 2 + 1));
-  ray.setFromCamera(ndc, camera); aimDir.copy(ray.ray.direction);
+document.addEventListener('pointerlockchange', () => {
+  locked = document.pointerLockElement === renderer.domElement;
+  if (!locked) { mouseFire = false; freeLook = false; lastXY = null; }
+});
+function aimBy(dx, dy) {           // mouse movement swings the aim marker: yaw around world up, pitch around the camera's side axis
+  const s = 0.0018 * sens;
+  aimDir.applyAxisAngle(UP, -dx * s);
+  const side = v3.crossVectors(aimDir, UP).normalize();
+  const nd = tv.copy(aimDir).applyAxisAngle(side, -dy * s);
+  if (Math.abs(nd.y) < 0.97) aimDir.copy(nd);
+  aimDir.normalize(); aimActive = true;
 }
 renderer.domElement.addEventListener('pointerdown', e => {
   sfx.unlock(); if (!inMatch) return;
+  if (e.pointerType === 'mouse' && mouseAim && !locked && renderer.domElement.requestPointerLock) {
+    try { const pr = renderer.domElement.requestPointerLock(); if (pr && pr.catch) pr.catch(() => {}); } catch {}
+  }
   if (e.button === 0 && e.pointerType === 'mouse') mouseFire = true;
   else if (e.button === 2 && e.pointerType === 'mouse') { freeLook = true; drag = { x: e.clientX, y: e.clientY }; }
   else { drag = { x: e.clientX, y: e.clientY }; renderer.domElement.setPointerCapture(e.pointerId); }
 });
-renderer.domElement.addEventListener('mousemove', e => { if (inMatch && hasMouse) pointerXY = { x: e.clientX, y: e.clientY }; });
-renderer.domElement.addEventListener('mouseleave', () => { pointerXY = null; });
+renderer.domElement.addEventListener('mousemove', e => {
+  if (!inMatch || !useMouse() || !player.alive) return;
+  let dx = e.movementX, dy = e.movementY;
+  if (!locked) { dx = lastXY ? e.clientX - lastXY.x : 0; dy = lastXY ? e.clientY - lastXY.y : 0; lastXY = { x: e.clientX, y: e.clientY }; }   // no pointer lock (app panes): use plain movement
+  if (freeLook) { orbit.yaw -= dx * 0.005; orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + dy * 0.005, -0.6, 1.4); }
+  else aimBy(dx, dy);
+});
+renderer.domElement.addEventListener('mouseleave', () => { lastXY = null; });
 renderer.domElement.addEventListener('pointermove', e => {
-  if (!drag) return;
+  if (!drag || locked) return;
   const dx = (e.clientX - drag.x) * 0.005, dy = (e.clientY - drag.y) * 0.005; drag = { x: e.clientX, y: e.clientY };
   if (view === 'cockpit') { look.yaw = THREE.MathUtils.clamp(look.yaw - dx, -2.6, 2.6); look.pitch = THREE.MathUtils.clamp(look.pitch - dy, -1.2, 1.3); }
   else { orbit.yaw -= dx; orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + dy, -0.6, 1.4); }
@@ -1045,7 +1058,8 @@ for (const b of document.querySelectorAll('#pad button')) {
   b.addEventListener('pointerdown', e => { e.preventDefault(); if (k === 'msl') launchMissile(); else if (k === 'flr') flares(); else keys.add(k); });
   for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => keys.delete(k));
 }
-$('bResume').onclick = () => $('pause').classList.remove('on');
+$('bResume').onclick = () => { $('pause').classList.remove('on'); if (useMouse()) try { const pr = renderer.domElement.requestPointerLock(); if (pr && pr.catch) pr.catch(() => {}); } catch {} };
+document.addEventListener('pointerlockchange', () => { if (!locked && inMatch && useMouse() && player.alive) { $('bEndMatch').hidden = !(net.practice || (party && party.host === net.id)); $('pause').classList.add('on'); } });
 const syncMouseBtn = () => { $('bMouse').setAttribute('aria-pressed', mouseAim); $('bMouse').textContent = 'Mouse steering: ' + (mouseAim ? 'on' : 'off'); };
 $('bMouse').onclick = () => { mouseAim = !mouseAim; store.set('sb_mouseaim', mouseAim ? '1' : '0'); syncMouseBtn(); if (player.root) aimDir.set(0, 0, 1).applyQuaternion(player.root.quaternion); };
 $('sens').value = sens; $('sens').oninput = e => { sens = +e.target.value; store.set('sb_sens', sens); };
@@ -1176,7 +1190,6 @@ renderer.setAnimationLoop(() => {
   const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, now = performance.now();
   if (inMatch) {
     mslUsed = 0;
-    if (useMouse() && player.alive && player.root) aimFromPointer();
     if (player.alive && player.root) fly(dt);
     if (player.inst) player.inst.mixer.update(dt);
     if (net.practice) { practice.update(dt); } else updateOthers(dt);
