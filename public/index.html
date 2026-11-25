@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sky Brawl</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#eef3f7;--muted:#a8b7c4;--panel:rgba(10,20,30,.78);--line:rgba(255,255,255,.14);--hot:#ff7a1a;--blue:#4aa3ff;--red:#ff5050;--ok:#5fe08a}
+*{box-sizing:border-box;min-width:0}
+html,body{margin:0;height:100%;overflow:hidden;background:#0b1620;color:var(--ink);font:16px/1.45 Barlow,system-ui,sans-serif}
+canvas{position:fixed;inset:0;width:100%;height:100%;display:block;outline:none;touch-action:none}
+.screen{position:fixed;inset:0;display:none;overflow:auto;padding:max(20px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) 20px max(20px,env(safe-area-inset-left))}
+.screen.on{display:block}
+h1{font:700 clamp(44px,8vw,84px)/1 "Barlow Condensed",sans-serif;margin:0;letter-spacing:.5px}
+h2{font:700 28px/1.1 "Barlow Condensed",sans-serif;margin:0 0 10px}
+h3{font:600 18px "Barlow Condensed",sans-serif;margin:16px 0 8px;color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;backdrop-filter:blur(6px)}
+button,select,input{font:500 16px Barlow,sans-serif;min-height:44px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--ink);padding:0 16px}
+button{cursor:pointer}button:hover{background:rgba(255,255,255,.15)}
+button.main{background:var(--hot);border-color:var(--hot);color:#1d0e02;font-weight:600}
+button.main:hover{filter:brightness(1.1)}
+button[aria-pressed=true]{border-color:var(--hot);box-shadow:inset 0 0 0 1px var(--hot)}
+button:disabled{opacity:.45;cursor:default}
+select option{color:#000}
+input{width:100%}
+:focus-visible{outline:3px solid var(--hot);outline-offset:2px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.muted{color:var(--muted);font-size:14px}
+/* Main menu */
+#menu .wrap{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,380px);gap:24px;align-items:end;min-height:calc(100vh - 40px)}
+#menu .tag{font:500 20px Barlow,sans-serif;color:var(--muted);margin:10px 0 0;max-width:520px}
+#menu .panel{display:grid;gap:12px}
+@media(max-width:800px){#menu .wrap{grid-template-columns:1fr;align-items:start}}
+/* Lobby */
+#lobby .wrap{max-width:1240px;margin:0 auto;display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr) minmax(0,340px);gap:18px;min-height:calc(100vh - 40px);align-content:space-between}
+#lobby .left,#lobby .right{display:grid;gap:14px;align-content:start}
+.code{font:700 44px/1 "Barlow Condensed",sans-serif;letter-spacing:6px;color:var(--hot)}
+.members{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.members li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.05)}
+.dot{width:10px;height:10px;border-radius:50%}
+.tagr{font-size:13px;color:var(--muted);white-space:nowrap}
+.ready{color:var(--ok)}
+.jets{display:flex;gap:8px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}
+.jet{flex:0 0 auto;scroll-snap-align:start;width:150px;text-align:left;padding:8px 12px;line-height:1.2}
+.jet b{display:block;font:700 19px "Barlow Condensed",sans-serif}.jet small{color:var(--muted);font-size:12px}
+.bottom{grid-column:1/-1}
+.chatlog{height:130px;overflow-y:auto;font-size:14px;display:flex;flex-direction:column;gap:3px;margin-bottom:8px}
+@media(max-width:1000px){#lobby .wrap{grid-template-columns:1fr}#lobby .mid{display:none}}
+/* HUD */
+#hud{pointer-events:none;padding:0}
+#hud .tl,#hud .tr,#hud .bl,#hud .br,#hud .tc{position:absolute}
+#hud .tc{left:50%;top:12px;transform:translateX(-50%);text-align:center;font:700 26px "Barlow Condensed",sans-serif;text-shadow:0 2px 4px #000a}
+#hud .tc small{display:block;font:600 16px "Barlow Condensed",sans-serif;color:var(--muted)}
+#hud .tr{right:16px;top:14px;display:grid;gap:4px;justify-items:end;font-size:15px;text-shadow:0 1px 3px #000}
+#hud .bl{left:16px;bottom:16px;font:600 20px "Barlow Condensed",sans-serif;color:#d9ffe0;text-shadow:0 1px 3px #000c;display:grid;gap:2px}
+#hud .br{right:16px;bottom:16px;font:600 20px "Barlow Condensed",sans-serif;text-align:right;text-shadow:0 1px 3px #000c;display:grid;gap:2px;justify-items:end}
+.hp{width:220px;height:10px;border-radius:5px;background:#0008;overflow:hidden;margin-top:4px}
+.hp i{display:block;height:100%;background:var(--ok);width:100%}
+.reticle{position:absolute;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;border:2px solid #d9ffe0aa;border-radius:50%}
+.reticle::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;background:#d9ffe0;border-radius:50%}
+.mk{position:absolute;transform:translate(-50%,-50%);font:600 13px Barlow,sans-serif;text-align:center;white-space:nowrap;text-shadow:0 1px 2px #000}
+.mk i{display:block;margin:0 auto 2px;width:12px;height:12px;border:2px solid currentColor;transform:rotate(45deg)}
+.lockbox{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border:2px solid #ffd34a;display:none}
+.lockbox.locked{border-color:var(--red);border-width:3px}
+.pip{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid #d9ffe0;border-radius:50%;display:none}
+.warn{position:absolute;left:50%;top:24%;transform:translateX(-50%);font:700 30px "Barlow Condensed",sans-serif;color:var(--red);text-shadow:0 2px 6px #000;display:none}
+.feed div{background:#0007;padding:2px 10px;border-radius:6px}
+.flash{position:fixed;inset:0;background:radial-gradient(transparent 50%,rgba(255,0,0,.45));opacity:0;transition:opacity .3s;pointer-events:none}
+#hud .pad{position:absolute;right:16px;bottom:110px;display:none;grid-template-columns:repeat(3,56px);gap:8px;pointer-events:auto}
+#hud .pad button{min-height:56px;padding:0;background:#0007;font-size:18px}
+.touch #hud .pad{display:grid}
+/* Overlays */
+.center{position:fixed;inset:0;display:none;place-items:center;pointer-events:none}
+.center.on{display:grid}
+.center .panel{pointer-events:auto;text-align:center;min-width:300px;max-width:92vw}
+.big{font:700 40px "Barlow Condensed",sans-serif}
+table{border-collapse:collapse;width:100%;font-size:15px}
+td,th{padding:6px 10px;text-align:left;border-bottom:1px solid var(--line)}
+td.n,th.n{text-align:right}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);padding:10px 16px;border-radius:10px;display:none;z-index:9}
+.hint{font-size:13px;color:var(--muted)}
+kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4px;padding:0 5px}
+</style>
+</head>
+<body>
+<!-- Main menu -->
+<div class="screen on" id="menu">
+  <div class="wrap">
+    <div>
+      <h1>SKY BRAWL</h1>
+      <p class="tag">Low-poly jet dogfights in your browser. Pick a fighter, make a party, and fight your friends over islands, canyons and mountains.</p>
+    </div>
+    <div class="panel">
+      <label class="muted" for="name">Pilot name</label>
+      <input id="name" maxlength="16" placeholder="Your name" autocomplete="off">
+      <button class="main" id="bCreate">Create a party</button>
+      <div class="row" style="flex-wrap:nowrap"><input id="joinCode" maxlength="5" placeholder="Party code" style="text-transform:uppercase"><button id="bJoin">Join</button></div>
+      <button id="bPractice">Practice against bots</button>
+      <p class="muted" id="netStatus">Connecting to the server…</p>
+    </div>
+  </div>
+</div>
+
+<!-- Party lobby / hangar -->
+<div class="screen" id="lobby">
+  <div class="wrap">
+    <div class="left">
+      <div class="panel">
+        <div class="muted">Party code. Send it to your friends</div>
+        <div class="row"><span class="code" id="pCode">-----</span><button id="bCopy">Copy</button></div>
+        <h3>Pilots <span id="pCount"></span></h3>
+        <ul class="members" id="members"></ul>
+        <div class="row" style="margin-top:12px"><button id="bLeave">Leave party</button></div>
+      </div>
+      <div class="panel" id="hostPanel">
+        <h2>Match settings</h2>
+        <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center">
+          <label for="sMode">Mode</label><select id="sMode"><option value="tdm">Team deathmatch (Blue vs Red)</option><option value="ffa">Free for all</option></select>
+          <label for="sMap">Map</label><select id="sMap"><option value="islands">Island chain</option><option value="canyon">Red canyon</option><option value="alps">Alpine peaks</option></select>
+          <label for="sScore">Score limit</label><select id="sScore"><option>5</option><option selected>10</option><option>15</option><option>20</option><option>30</option></select>
+          <label for="sTime">Time limit</label><select id="sTime"><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option></select>
+        </div>
+        <p class="hint" id="hostHint"></p>
+      </div>
+    </div>
+    <div class="mid"></div>
+    <div class="right">
+      <div class="panel">
+        <h2 id="jetName">F-14 Tomcat</h2>
+        <div class="muted" id="jetRole"></div>
+        <h3>Choose your jet</h3>
+        <div class="jets" id="jets"></div>
+        <div id="teamRow">
+          <h3>Team</h3>
+          <div class="row"><button id="tBlue">Blue team</button><button id="tRed">Red team</button></div>
+        </div>
+        <div class="row" style="margin-top:16px"><button id="bReady">Ready</button><button class="main" id="bStart">Start match</button></div>
+        <p class="hint" id="startHint"></p>
+      </div>
+      <div class="panel">
+        <h3 style="margin-top:0">Party chat</h3>
+        <div class="chatlog" id="chatlog"></div>
+        <input id="chatIn" maxlength="140" placeholder="Say something and press Enter">
+      </div>
+    </div>
+    <div class="bottom panel hint">
+      <b>Controls:</b> <kbd>W</kbd>/<kbd>S</kbd> nose down/up · <kbd>A</kbd>/<kbd>D</kbd> roll · <kbd>Q</kbd>/<kbd>E</kbd> rudder · <kbd>R</kbd>/<kbd>F</kbd> throttle ·
+      <kbd>Space</kbd> or left click guns · <kbd>X</kbd> missile (aim at an enemy until the box turns red) · <kbd>Z</kbd> flares · <kbd>T</kbd> cockpit/chase view ·
+      right-drag to look · <kbd>G</kbd> gear · <kbd>Tab</kbd> scores · <kbd>Enter</kbd> chat · <kbd>Esc</kbd> menu · <kbd>M</kbd> sound
+    </div>
+  </div>
+</div>
+
+<!-- In-match HUD -->
+<div class="screen" id="hud">
+  <div class="tc"><span id="hScore">0 – 0</span><small id="hTime">10:00</small></div>
+  <div class="tr feed" id="feed"></div>
+  <div class="bl">
+    <span id="hSpd">0 kt</span><span id="hAlt">0 ft</span><span id="hThr">THR 45%</span>
+    <div class="hp"><i id="hHp"></i></div>
+  </div>
+  <div class="br"><span id="hGun">GUN 600</span><span id="hMsl">MSL 4</span><span id="hFlr">FLR 6</span><span id="hJet"></span></div>
+  <div class="reticle"></div>
+  <div class="lockbox" id="lockbox"></div>
+  <div class="pip" id="pip"></div>
+  <div class="warn" id="warn"></div>
+  <div id="markers"></div>
+  <div class="pad" id="pad">
+    <button data-k="flr">FLR</button><button data-k="up">▲</button><button data-k="msl">MSL</button>
+    <button data-k="left">◀</button><button data-k="fire">FIRE</button><button data-k="right">▶</button>
+    <button data-k="brk">−</button><button data-k="down">▼</button><button data-k="thr">+</button>
+  </div>
+</div>
+<div class="flash" id="flash"></div>
+
+<div class="center" id="dead"><div class="panel"><div class="big" id="deadTitle">Shot down</div><p id="deadText"></p><p class="muted" id="deadTimer"></p></div></div>
+<div class="center" id="board"><div class="panel" style="min-width:min(560px,92vw)"><h2 id="boardTitle">Scoreboard</h2><table><thead><tr><th>Pilot</th><th>Jet</th><th class="n">Kills</th><th class="n">Deaths</th></tr></thead><tbody id="boardBody"></tbody></table><div class="row" id="boardBtns" style="justify-content:center;margin-top:14px"></div></div></div>
+<div class="center" id="pause"><div class="panel"><h2>Menu</h2><div style="display:grid;gap:10px"><button id="bResume" class="main">Back to the fight</button><button id="bEndMatch">End match for everyone</button><button id="bQuit">Leave match</button></div></div></div>
+<div id="toast"></div>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+{
+const $ = id => document.getElementById(id);
+const JETS = [{"id": "f14", "name": "F-14 Tomcat", "short": "F-14", "role": "Navy fleet defender with swing wings", "crew": "2 crew", "len": 19.1, "span": 19.54, "height": 4.88, "ground": -1.94, "seats": [[0, 1.13, 3.88], [0, 1.03, 2.12]], "flames": [{"x": 1.48, "y": -0.24, "z": -9.15, "r": 0.4}, {"x": -1.48, "y": -0.24, "z": -9.15, "r": 0.4}], "sweep": true, "handling": {"thrust": 42, "vmax": 390, "roll": 2.4, "pitch": 1.05}, "note": "F-14 Tomcat: two-seat US Navy carrier fighter. Swing wings from 20\u00b0 to 68\u00b0 (they sweep by themselves as you speed up), raked square intakes, Phoenix, Sparrow and Sidewinder missiles, and a tandem cockpit with the big round tactical display in the back seat."}, {"id": "f15", "name": "F-15C Eagle", "short": "F-15C", "role": "Air superiority fighter", "crew": "1 pilot", "len": 19.43, "span": 13.05, "height": 5.63, "handling": {"thrust": 48, "vmax": 410, "roll": 2.8, "pitch": 1.15}, "note": "F-15C Eagle: single-seat air-superiority fighter. Big square intakes with the top lip forward, a tall bubble canopy for all-round view, twin vertical tails on booms, a speed brake on its back, four Sparrows and four Sidewinders. Classic round-gauge cockpit with a centre stick.", "ground": -1.88, "seats": [[0, 1.0599999999999998, 4.7]], "flames": [{"x": 0.68, "y": 0.05, "z": -8.9, "r": 0.44}, {"x": -0.68, "y": 0.05, "z": -8.9, "r": 0.44}], "sweep": false}, {"id": "f16", "name": "F-16C Fighting Falcon", "short": "F-16C", "role": "Lightweight multirole fighter", "crew": "1 pilot", "len": 15.06, "span": 9.96, "height": 4.88, "handling": {"thrust": 46, "vmax": 380, "roll": 3.6, "pitch": 1.3}, "note": "F-16C Fighting Falcon: light single-engine fighter. Tall one-piece bubble canopy with the pilot sitting high, a short nose with the pitot probe, a big intake under the cockpit, curved strakes that blend into the wings, a high spine running into the tall fin, a reclined seat with the side-stick on the right, Sidewinders on the wingtips and AMRAAMs under the wings. It rolls the fastest of the five.", "ground": -1.68, "seats": [[0, 1.0399999999999998, 3.78]], "flames": [{"x": 0, "y": 0.1, "z": -7.53, "r": 0.42}], "sweep": false}, {"id": "f22", "name": "F-22A Raptor", "short": "F-22A", "role": "Stealth air dominance fighter", "crew": "1 pilot", "len": 18.92, "span": 13.56, "height": 5.08, "handling": {"thrust": 52, "vmax": 410, "roll": 3.0, "pitch": 1.5}, "note": "F-22A Raptor: stealth air-superiority fighter. Diamond-shaped wings, sharp-edged fuselage, angled intakes, gold-tinted canopy, twin tails leaning outward and flat thrust-vectoring nozzles. Its missiles ride in internal bays (shown here on their launch rails). Thrust vectoring makes it pitch the fastest.", "ground": -1.87, "seats": [[0, 0.9099999999999999, 5.23]], "flames": [{"x": 0.78, "y": 0.05, "z": -9, "r": 0.42, "sx": 2.2}, {"x": -0.78, "y": 0.05, "z": -9, "r": 0.42, "sx": 2.2}], "sweep": false}, {"id": "f35", "name": "F-35A Lightning II", "short": "F-35A", "role": "Stealth multirole fighter", "crew": "1 pilot", "len": 15.67, "span": 10.7, "height": 4.38, "handling": {"thrust": 42, "vmax": 345, "roll": 2.8, "pitch": 1.25}, "note": "F-35A Lightning II: single-engine stealth fighter. Intakes with the bump in front instead of a gap, one wide touchscreen instead of gauges and no HUD (real pilots see flight data in their helmet), twin tails leaning outward and a sawtooth-edged nozzle.", "ground": -1.85, "seats": [[0, 0.94, 3.93]], "flames": [{"x": 0, "y": 0.05, "z": -7.85, "r": 0.5}], "sweep": false}];
+const JET = Object.fromEntries(JETS.map(j => [j.id, j]));
+const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+const toast = (msg, ms = 2600) => { const t = $('toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(toast.h); toast.h = setTimeout(() => t.style.display = 'none', ms); };
+const show = id => { for (const s of ['menu', 'lobby', 'hud']) $(s).classList.toggle('on', s === id); };
+
+// ================= Renderer, lights, hangar
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.domElement.tabIndex = 0;
+document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene();
+const envTex = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;   // jets only: gives metal and glass something to reflect
+const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 30000);
+scene.add(new THREE.HemisphereLight(0xcfe3ff, 0x8a6a4a, 1.4));
+const sun = new THREE.DirectionalLight(0xfff1dd, 2.4); sun.position.set(4000, 9000, 3000); scene.add(sun, sun.target);
+const HANGAR_BG = new THREE.Color(0x1b3550);
+const hangar = new THREE.Group(); scene.add(hangar);
+{
+  const deck = new THREE.Mesh(new THREE.CylinderGeometry(16, 17, 0.6, 32), new THREE.MeshStandardMaterial({ color: 0x2b3640, roughness: 0.9 }));
+  deck.position.y = -2.3; hangar.add(deck);
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(15.2, 0.12, 6, 64), new THREE.MeshBasicMaterial({ color: 0xff7a1a })); ring.rotation.x = Math.PI / 2; ring.position.y = -1.98; hangar.add(ring);
+}
+
+// ---------- Big procedural maps (only shown while flying). Terrain streams in 2 km tiles around the jet.
+const noise2 = (() => {
+  const p = new Uint8Array(512), g = [[1,1],[-1,1],[1,-1],[-1,-1],[1,0],[-1,0],[0,1],[0,-1]];
+  let s = 1337; for (let i = 0; i < 256; i++) p[i] = i;
+  for (let i = 255; i > 0; i--) { s = (s * 16807) % 2147483647; const j = s % (i + 1); [p[i], p[j]] = [p[j], p[i]]; }
+  for (let i = 0; i < 256; i++) p[i + 256] = p[i];
+  const F = 0.5 * (Math.sqrt(3) - 1), G = (3 - Math.sqrt(3)) / 6;
+  return (x, y) => {
+    const s2 = (x + y) * F, i = Math.floor(x + s2), j = Math.floor(y + s2), t = (i + j) * G;
+    const x0 = x - i + t, y0 = y - j + t, i1 = x0 > y0 ? 1 : 0, j1 = 1 - i1;
+    const x1 = x0 - i1 + G, y1 = y0 - j1 + G, x2 = x0 - 1 + 2 * G, y2 = y0 - 1 + 2 * G, ii = i & 255, jj = j & 255;
+    let n = 0;
+    for (const [dx, dy, gi] of [[x0, y0, p[ii + p[jj]]], [x1, y1, p[ii + i1 + p[jj + j1]]], [x2, y2, p[ii + 1 + p[jj + 1]]]]) {
+      const tt = 0.5 - dx * dx - dy * dy;
+      if (tt > 0) { const gr = g[gi & 7]; n += tt ** 4 * (gr[0] * dx + gr[1] * dy); }
+    }
+    return 70 * n;
+  };
+})();
+const fbm = (x, z, o = 5) => { let a = 1, f = 1, s = 0, n = 0; for (let i = 0; i < o; i++) { s += a * noise2(x * f, z * f); n += a; a *= 0.5; f *= 2.03; } return s / n; };
+const ridged = (x, z, o = 5) => { let a = 1, f = 1, s = 0, n = 0; for (let i = 0; i < o; i++) { s += a * (1 - Math.abs(noise2(x * f + 31.7, z * f - 11.3))) ** 2; n += a; a *= 0.5; f *= 2.1; } return s / n; };
+const sstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const C = h => new THREE.Color(h);
+
+const MAPS = {
+  islands: {
+    name: 'Island chain', sky: 0x8fbbe0, water: 0, waterColor: 0x1f5f82, clouds: [900, 2700],
+    height: (x, z) => {
+      const b = fbm(x / 9000, z / 9000, 5) * 0.5 + 0.5;
+      let h = (b - 0.53) * 3000;
+      if (h > 0) h += ridged(x / 2600, z / 2600, 4) * 700 * sstep(0, 350, h);
+      return Math.max(h, -160);
+    },
+    color: (h, slope, x, z) => h < 18 ? C(0xd9c38a) : slope > 0.75 ? C(0x6d6a63) : h > 1000 ? C(0x7a7670) : h > 500 ? C(0x3f6a35) : (noise2(x / 400, z / 400) > 0 ? C(0x5f8c3c) : C(0x6f9a45)),
+  },
+  canyon: {
+    name: 'Red canyon', sky: 0xb9d3e6, water: 70, waterColor: 0x2f7d86, clouds: [1600, 3200],
+    height: (x, z) => {
+      const r = 1 - Math.abs(fbm(x / 7000, z / 7000, 3));
+      const carve = sstep(0.84, 0.95, r), steps = Math.floor(carve * 6) / 6 * 0.65 + carve * 0.35;
+      let h = 700 + fbm(x / 2500, z / 2500, 4) * 50 - steps * 640;
+      const butte = sstep(0.55, 0.62, noise2(x / 1600, z / 1600));
+      return h + butte * 260 * (1 - carve);
+    },
+    color: (h, slope, x, z) => h < 85 ? C(0xcfb48a) : slope > 0.9 ? [C(0x9a4a2a), C(0xb8613a), C(0x7f3c24)][Math.floor(h / 70) % 3] : h > 900 ? C(0xc7774a) : C(0xc98a55),
+  },
+  alps: {
+    name: 'Alpine peaks', sky: 0x9dc4e6, water: 260, waterColor: 0x2a6f9a, clouds: [3400, 4800],
+    height: (x, z) => {
+      const m = ridged(x / 8000, z / 8000, 6);
+      return 150 + m * m * 3800 + fbm(x / 3000, z / 3000, 3) * 260;
+    },
+    color: (h, slope, x, z) => h > 2350 - slope * 300 ? C(0xf2f5f7) : slope > 0.85 || h > 1700 ? C(0x7d7b78) : h < 285 ? C(0xbfae86) : (noise2(x / 300, z / 300) > 0.1 ? C(0x2f5a2e) : C(0x46743a)),
+  },
+};
+let map = MAPS.islands;
+
+const world = new THREE.Group(), TILE = 2000, RAD = 7, tiles = new Map(), clouds = [], CWR = 14000;
+world.visible = false; scene.add(world);
+const terrainMat = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95 });
+const water = new THREE.Mesh(new THREE.PlaneGeometry(60000, 60000), new THREE.MeshStandardMaterial({ color: 0x1f5f82, roughness: 0.35, metalness: 0.1 }));
+water.rotation.x = -Math.PI / 2; world.add(water);
+const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, flatShading: true, roughness: 1 });
+{
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 80; i++) {
+    const c = new THREE.Group(), n = 3 + Math.floor(rnd() * 4);
+    for (let k = 0; k < n; k++) {
+      const m = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), cloudMat), s = 90 + rnd() * 170;
+      m.scale.set(s * 1.4, s * 0.7, s); m.position.set((k - n / 2) * s * 1.1, rnd() * 40, (rnd() - 0.5) * s); c.add(m);
+    }
+    c.userData.base = new THREE.Vector3((rnd() * 2 - 1) * CWR, rnd(), (rnd() * 2 - 1) * CWR);
+    world.add(c); clouds.push(c);
+  }
+}
+// Low-poly aircraft carrier for the island map
+const carrier = new THREE.Group();
+{
+  const grey = new THREE.MeshStandardMaterial({ color: 0x6b7178, flatShading: true }), deck = new THREE.MeshStandardMaterial({ color: 0x3a3d40, flatShading: true });
+  const hull = new THREE.Mesh(new THREE.BoxGeometry(40, 18, 300), grey); hull.position.y = 6;
+  const bow = new THREE.Mesh(new THREE.ConeGeometry(20, 40, 4, 1), grey); bow.rotation.set(Math.PI / 2, Math.PI / 4, 0); bow.scale.set(1, 1, 0.5); bow.position.set(0, 9, 170);
+  const fd = new THREE.Mesh(new THREE.BoxGeometry(76, 2, 330), deck); fd.position.set(-6, 16, 5);
+  const angled = new THREE.Mesh(new THREE.BoxGeometry(30, 2.1, 210), deck); angled.position.set(22, 16, -40); angled.rotation.y = -0.16;
+  const isl = new THREE.Mesh(new THREE.BoxGeometry(10, 22, 34), grey); isl.position.set(-32, 28, -10);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.2, 18, 6), grey); mast.position.set(-32, 48, -12);
+  const line = new THREE.Mesh(new THREE.BoxGeometry(1, 0.2, 320), new THREE.MeshBasicMaterial({ color: 0xe8e8e8 })); line.position.set(-6, 17.1, 5);
+  carrier.add(hull, bow, fd, angled, isl, mast, line);
+  carrier.position.set(600, 0, 2400); world.add(carrier);
+}
+
+function groundAt(x, z) { return Math.max(map.height(x, z), map.water); }
+function buildTile(tx, tz, seg) {
+  const n = seg + 1, cell = TILE / seg, cnt = n * n + 4 * n;
+  const pos = new Float32Array(cnt * 3), col = new Float32Array(cnt * 3), hs = new Float32Array(n * n);
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) hs[j * n + i] = map.height(tx * TILE + i * cell, tz * TILE + j * cell);
+  const put = (k, x, y, z, c) => { pos.set([x, y, z], k * 3); col.set([c.r, c.g, c.b], k * 3); };
+  for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+    const h = hs[j * n + i], hx = hs[j * n + Math.min(i + 1, seg)] - hs[j * n + Math.max(i - 1, 0)], hz = hs[Math.min(j + 1, seg) * n + i] - hs[Math.max(j - 1, 0) * n + i];
+    const slope = Math.hypot(hx, hz) / (2 * cell);
+    put(j * n + i, i * cell, h, j * cell, map.color(h, slope, tx * TILE + i * cell, tz * TILE + j * cell));
+  }
+  const idx = [];
+  for (let j = 0; j < seg; j++) for (let i = 0; i < seg; i++) { const a = j * n + i, b = a + 1, c = a + n, d = c + 1; idx.push(a, c, b, b, c, d); }
+  // Skirts hide cracks between tiles of different detail
+  const edges = [[...Array(n)].map((_, i) => i), [...Array(n)].map((_, i) => seg * n + i), [...Array(n)].map((_, j) => j * n), [...Array(n)].map((_, j) => j * n + seg)];
+  let k = n * n;
+  edges.forEach((e, ei) => {
+    const start = k;
+    for (const v of e) { put(k, pos[v * 3], pos[v * 3 + 1] - 120, pos[v * 3 + 2], new THREE.Color(col[v * 3], col[v * 3 + 1], col[v * 3 + 2])); k++; }
+    for (let q = 0; q < seg; q++) { const a = e[q], b = e[q + 1], c = start + q, d = start + q + 1; if (ei % 2) idx.push(a, b, c, b, d, c); else idx.push(a, c, b, b, c, d); }
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setIndex(idx);
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, terrainMat); m.position.set(tx * TILE, 0, tz * TILE); m.matrixAutoUpdate = false; m.updateMatrix();
+  return m;
+}
+const lodFor = d => d <= 1 ? 40 : d <= 3 ? 20 : 8;
+function updateTiles(cx, cz, budgetMs) {
+  const ctx = Math.floor(cx / TILE), ctz = Math.floor(cz / TILE), want = [];
+  for (let dz = -RAD; dz <= RAD; dz++) for (let dx = -RAD; dx <= RAD; dx++) {
+    if (dx * dx + dz * dz > (RAD + 0.5) ** 2) continue;
+    const d = Math.max(Math.abs(dx), Math.abs(dz)), key = (ctx + dx) + ',' + (ctz + dz), seg = lodFor(d), t = tiles.get(key);
+    if (!t || t.seg !== seg) want.push({ key, tx: ctx + dx, tz: ctz + dz, seg, d });
+  }
+  want.sort((a, b) => a.d - b.d);
+  const t0 = performance.now();
+  for (const w of want) {
+    if (performance.now() - t0 > budgetMs) break;
+    const old = tiles.get(w.key); if (old) { world.remove(old.mesh); old.mesh.geometry.dispose(); }
+    const mesh = buildTile(w.tx, w.tz, w.seg); world.add(mesh); tiles.set(w.key, { mesh, seg: w.seg });
+  }
+  for (const [key, t] of tiles) {
+    const [x, z] = key.split(',').map(Number);
+    if (Math.max(Math.abs(x - ctx), Math.abs(z - ctz)) > RAD + 1) { world.remove(t.mesh); t.mesh.geometry.dispose(); tiles.delete(key); }
+  }
+  return want.length;
+}
+function setMap(id) {
+  map = MAPS[id];
+  for (const t of tiles.values()) { world.remove(t.mesh); t.mesh.geometry.dispose(); }
+  tiles.clear();
+  water.position.y = map.water; water.material.color.set(map.waterColor);
+  carrier.visible = id === 'islands';
+  for (const c of clouds) c.userData.y = map.clouds[0] + c.userData.base.y * (map.clouds[1] - map.clouds[0]);
+  const sky = new THREE.Color(map.sky); scene.background = sky; scene.fog = new THREE.Fog(sky, 3000, 13500);
+}
+
+
+
+// ================= Jets: load models once, clone per player
+const loader = new GLTFLoader(), models = {};
+const loadModel = id => models[id] ||= loader.loadAsync('models/' + id + '.glb').then(g => { g.scene.traverse(o => { if (o.isMesh) { const m = o.material; m.flatShading = true; m.envMap = envTex; m.envMapIntensity = 0.6; if (m.name === 'mirror') { m.metalness = 0.4; m.roughness = 0.25; m.color.set(0xb8c4cc); } } }); return g; });
+async function makeJet(id, local) {
+  const g = await loadModel(id), info = JET[id];
+  const root = g.scene.clone(true);
+  const cockpit = root.getObjectByName('Cockpit'); if (cockpit && !local) cockpit.visible = false;
+  const inst = { id, info, root, wingL: root.getObjectByName('WingL'), wingR: root.getObjectByName('WingR'), weapons: root.getObjectByName('Weapons'), flames: [], gearDown: true };
+  for (const f0 of info.flames) {
+    const f = new THREE.Mesh(new THREE.ConeGeometry(f0.r, 3, 10), new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.85, depthWrite: false }));
+    f.rotation.x = -Math.PI / 2; f.position.set(f0.x, f0.y, f0.z - 1.5); f.scale.x = f0.sx || 1; f.userData.sx = f0.sx || 1; f.visible = false;
+    root.add(f); inst.flames.push(f);
+  }
+  const clip = g.animations.find(a => a.name === 'GearUp');
+  inst.mixer = new THREE.AnimationMixer(root);
+  if (clip) { inst.action = inst.mixer.clipAction(clip); inst.action.setLoop(THREE.LoopOnce); inst.action.clampWhenFinished = true; inst.action.play(); inst.action.paused = true; inst.dur = clip.duration; }
+  return inst;
+}
+function setGear(inst, down, instant) {
+  if (!inst.action || inst.gearDown === down) return;
+  inst.gearDown = down;
+  if (instant) { inst.action.time = down ? 0 : inst.dur; inst.action.paused = true; inst.mixer.update(0); return; }
+  inst.action.timeScale = down ? -1 : 1; inst.action.paused = false; inst.action.enabled = true;
+}
+function setSweep(inst, deg) { if (inst.wingL) { const a = THREE.MathUtils.degToRad(deg); inst.wingL.rotation.y = a; inst.wingR.rotation.y = -a; } }
+
+// ================= Particles (smoke, fire, sparks) and tracers: one draw call each
+const PMAX = 2500, pGeo = new THREE.IcosahedronGeometry(1, 0), pMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const pMesh = new THREE.InstancedMesh(pGeo, pMat, PMAX); pMesh.frustumCulled = false; pMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(pMesh);
+const parts = []; let pNext = 0;
+const tmpM = new THREE.Matrix4(), tmpQ = new THREE.Quaternion(), tmpS = new THREE.Vector3(), tmpC = new THREE.Color(), ZERO = new THREE.Vector3(0, 0, 0);
+function puff(pos, vel, life, s0, s1, c0, c1) {
+  const p = parts[pNext] ||= { pos: new THREE.Vector3(), vel: new THREE.Vector3(), c0: new THREE.Color(), c1: new THREE.Color() };
+  p.pos.copy(pos); p.vel.copy(vel); p.life = 0; p.max = life; p.s0 = s0; p.s1 = s1; p.c0.set(c0); p.c1.set(c1); p.on = true;
+  pNext = (pNext + 1) % PMAX;
+}
+function updateParticles(dt) {
+  for (let i = 0; i < PMAX; i++) {
+    const p = parts[i];
+    if (!p || !p.on) { tmpM.makeScale(0, 0, 0); pMesh.setMatrixAt(i, tmpM); continue; }
+    p.life += dt; if (p.life >= p.max) { p.on = false; tmpM.makeScale(0, 0, 0); pMesh.setMatrixAt(i, tmpM); continue; }
+    const k = p.life / p.max; p.pos.addScaledVector(p.vel, dt); p.vel.multiplyScalar(1 - 0.6 * dt);
+    const s = p.s0 + (p.s1 - p.s0) * k; tmpS.set(s, s, s); tmpM.compose(p.pos, tmpQ.identity(), tmpS); pMesh.setMatrixAt(i, tmpM);
+    tmpC.copy(p.c0).lerp(p.c1, k); pMesh.setColorAt(i, tmpC);
+  }
+  pMesh.instanceMatrix.needsUpdate = true; if (pMesh.instanceColor) pMesh.instanceColor.needsUpdate = true;
+}
+function explode(pos, big = 1) {
+  for (let i = 0; i < 40 * big; i++) {
+    const v = new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.3, Math.random() - 0.5).normalize().multiplyScalar(20 + Math.random() * 60 * big);
+    puff(pos, v, 0.6 + Math.random() * 0.8, 3 * big, 9 * big, i % 3 ? 0xffb030 : 0xffee88, 0x553322);
+  }
+  for (let i = 0; i < 24 * big; i++) {
+    const v = new THREE.Vector3(Math.random() - 0.5, Math.random() * 0.6, Math.random() - 0.5).multiplyScalar(30);
+    puff(pos, v, 2 + Math.random() * 2, 4 * big, 14 * big, 0x444444, 0x9aa4ad);
+  }
+  sfx.boom(pos);
+}
+const TMAX = 600, tMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(0.18, 0.18, 9), new THREE.MeshBasicMaterial({ color: 0xffd060 }), TMAX);
+tMesh.frustumCulled = false; tMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(tMesh);
+const bullets = []; let tNext = 0;
+const ZAX = new THREE.Vector3(0, 0, 1);
+function fireBullet(pos, vel, owner, hits) {
+  const b = bullets[tNext] ||= { pos: new THREE.Vector3(), vel: new THREE.Vector3(), prev: new THREE.Vector3() };
+  b.pos.copy(pos); b.prev.copy(pos); b.vel.copy(vel); b.life = 0; b.on = true; b.owner = owner; b.hits = hits;
+  tNext = (tNext + 1) % TMAX;
+}
+const seg = new THREE.Vector3(), rel = new THREE.Vector3();
+function bulletTargets() {
+  if (net.practice) return practice.bots.filter(b => b.alive);
+  const out = []; for (const o of others.values()) if (o.alive && o.inst && o.inst.root.visible && isEnemy(o)) { o.root = o.inst.root; out.push(o); }
+  return out;
+}
+function updateBullets(dt) {
+  for (let i = 0; i < TMAX; i++) {
+    const b = bullets[i];
+    if (!b || !b.on) { tmpM.makeScale(0, 0, 0); tMesh.setMatrixAt(i, tmpM); continue; }
+    b.life += dt; b.prev.copy(b.pos); b.pos.addScaledVector(b.vel, dt); b.vel.y -= 4 * dt;
+    if (b.life > 1.8 || b.pos.y < groundAt(b.pos.x, b.pos.z)) { b.on = false; tmpM.makeScale(0, 0, 0); tMesh.setMatrixAt(i, tmpM); continue; }
+    if (b.hits) {                                     // my bullets check enemies (segment vs sphere)
+      for (const o of bulletTargets()) {
+        const c = o.root.position, r = o.info.len * 0.38;
+        seg.subVectors(b.pos, b.prev); const L = seg.length(); seg.divideScalar(L || 1);
+        rel.subVectors(c, b.prev); const t = THREE.MathUtils.clamp(rel.dot(seg), 0, L);
+        if (rel.addScaledVector(seg, -t).lengthSq() < r * r) {
+          b.on = false; hitEnemy(o, 'gun');
+          for (let k = 0; k < 4; k++) puff(b.pos, new THREE.Vector3((Math.random() - .5) * 30, Math.random() * 20, (Math.random() - .5) * 30), 0.3, 1.2, 0.2, 0xffee88, 0xff6020);
+          break;
+        }
+      }
+      if (!b.on) { tmpM.makeScale(0, 0, 0); tMesh.setMatrixAt(i, tmpM); continue; }
+    }
+    tmpQ.setFromUnitVectors(ZAX, rel.copy(b.vel).normalize()); tmpM.compose(b.pos, tmpQ, tmpS.set(1, 1, 1)); tMesh.setMatrixAt(i, tmpM);
+  }
+  tMesh.instanceMatrix.needsUpdate = true;
+}
+// Missile meshes (shared by local and remote missiles)
+const mslGeo = new THREE.CylinderGeometry(0.12, 0.12, 3.2, 6); mslGeo.rotateX(Math.PI / 2);
+const mslMat = new THREE.MeshStandardMaterial({ color: 0xe8e8e8, flatShading: true });
+const mslPool = []; let mslUsed = 0;
+function mslMesh() { let m = mslPool[mslUsed]; if (!m) { m = new THREE.Mesh(mslGeo, mslMat); scene.add(m); mslPool.push(m); } m.visible = true; mslUsed++; return m; }
+
+// ================= Sound (tiny WebAudio synth, toggled with M)
+const sfx = (() => {
+  let ac = null, on = store.get('sb_sound') !== '0', lockOsc = null, warnT = 0;
+  const ctx = () => { if (!ac) { try { ac = new AudioContext(); } catch { on = false; } } if (ac && ac.state === 'suspended') ac.resume(); return ac; };
+  const tone = (f, d, type = 'square', vol = 0.05) => { if (!on || !ctx()) return; const o = ac.createOscillator(), g = ac.createGain(); o.type = type; o.frequency.value = f; g.gain.value = vol; g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + d); o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + d); };
+  const noise = (d, vol, f = 800) => { if (!on || !ctx()) return; const b = ac.createBuffer(1, ac.sampleRate * d, ac.sampleRate), ch = b.getChannelData(0); for (let i = 0; i < ch.length; i++) ch[i] = (Math.random() * 2 - 1) * (1 - i / ch.length); const s = ac.createBufferSource(), fl = ac.createBiquadFilter(), g = ac.createGain(); fl.type = 'lowpass'; fl.frequency.value = f; g.gain.value = vol; s.buffer = b; s.connect(fl).connect(g).connect(ac.destination); s.start(); };
+  return {
+    unlock: ctx, toggle() { on = !on; store.set('sb_sound', on ? '1' : '0'); toast(on ? 'Sound on' : 'Sound off'); },
+    gun() { noise(0.05, 0.12, 2200); }, launch() { noise(0.6, 0.25, 900); }, hit() { tone(1400, 0.05, 'square', 0.04); },
+    boom(pos) { const d = pos && player.root ? pos.distanceTo(player.root.position) : 0; noise(1.2, Math.max(0.05, 0.6 - d / 4000), 400); },
+    lock(state) { if (!on || !ctx()) return; const t = ac.currentTime; if (state && Math.floor(t * (state === 2 ? 12 : 4)) !== lockOsc) { lockOsc = Math.floor(t * (state === 2 ? 12 : 4)); tone(state === 2 ? 1600 : 900, 0.05, 'sine', 0.05); } },
+    warn() { const t = performance.now(); if (t - warnT > 250) { warnT = t; tone(700, 0.12, 'sawtooth', 0.04); } },
+  };
+})();
+
+// ================= Networking
+const net = { ws: null, id: null, connected: false, practice: false, offset: null, queue: [] };
+function connect() {
+  if (!/^https?:$/.test(location.protocol)) { $('netStatus').textContent = 'Offline copy: only practice mode works. Open the game website to play with friends.'; return; }
+  const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
+  net.ws = ws;
+  ws.onopen = () => { net.connected = true; $('netStatus').textContent = 'Connected to the Frankfurt server.'; send({ t: 'hello', name: myName(), jet: myJet }); for (const m of net.queue) send(m); net.queue = []; };
+  ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch { return; } onServer(m); };
+  ws.onclose = () => {
+    net.connected = false; $('netStatus').textContent = 'Connection lost. Reconnecting…';
+    if (party && !net.practice) { toast('Lost connection to the server.'); leaveToMenu(); }
+    setTimeout(connect, 2000);
+  };
+}
+function send(m) {
+  if (net.practice) return practice.handle(m);
+  if (net.connected) net.ws.send(JSON.stringify(m)); else if (m.t !== 'state') net.queue.push(m);
+}
+const myName = () => ($('name').value.trim() || 'Pilot').slice(0, 16);
+
+// ================= Menu and lobby
+let party = null, myJet = store.get('sb_jet') || 'f14', myTeam = 0, inMatch = false, matchCfg = null, endsAt = 0;
+if (!JET[myJet]) myJet = 'f14';
+$('name').value = store.get('sb_name') || '';
+$('name').addEventListener('change', () => { store.set('sb_name', myName()); send({ t: 'hello', name: myName() }); });
+$('bCreate').onclick = () => { sfx.unlock(); store.set('sb_name', myName()); send({ t: 'hello', name: myName(), jet: myJet }); send({ t: 'create' }); };
+$('bJoin').onclick = () => { sfx.unlock(); const c = $('joinCode').value.trim().toUpperCase(); if (c.length !== 5) return toast('Party codes have 5 letters.'); store.set('sb_name', myName()); send({ t: 'hello', name: myName(), jet: myJet }); send({ t: 'join', code: c }); };
+$('joinCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('bJoin').click(); });
+$('bPractice').onclick = () => { sfx.unlock(); practice.start(); };
+$('bLeave').onclick = () => { send({ t: 'leave' }); leaveToMenu(); };
+$('bCopy').onclick = async () => { try { await navigator.clipboard.writeText(party.code); toast('Party code copied: ' + party.code); } catch { toast('Party code: ' + party.code); } };
+$('jets').innerHTML = JETS.map(j => `<button class="jet" data-id="${j.id}"><b>${j.short}</b><small>${j.role}</small></button>`).join('');
+$('jets').addEventListener('click', e => { const b = e.target.closest('.jet'); if (b) pickJet(b.dataset.id); });
+$('tBlue').onclick = () => send({ t: 'set', team: 0 }); $('tRed').onclick = () => send({ t: 'set', team: 1 });
+$('bReady').onclick = () => { const me = party && party.members.find(m => m.id === net.id); send({ t: 'set', ready: !(me && me.ready) }); };
+$('bStart').onclick = () => send({ t: 'start' });
+for (const [id, key, num] of [['sMode', 'mode'], ['sMap', 'map'], ['sScore', 'scoreLimit', 1], ['sTime', 'minutes', 1]])
+  $(id).addEventListener('change', e => send({ t: 'settings', [key]: num ? +e.target.value : e.target.value }));
+$('chatIn').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.value.trim()) { send({ t: 'chat', text: e.target.value.trim() }); e.target.value = ''; } });
+
+function pickJet(id) {
+  myJet = id; store.set('sb_jet', id); send({ t: 'set', jet: id });
+  showHangarJet(id); renderJetInfo();
+}
+function renderJetInfo() {
+  const j = JET[myJet]; $('jetName').textContent = j.name; $('jetRole').textContent = `${j.role} · ${j.len} m long · ${j.span} m span · ${j.crew}`;
+  for (const b of document.querySelectorAll('.jet')) b.setAttribute('aria-pressed', b.dataset.id === myJet);
+}
+let hangarJet = null, hangarSeq = 0;
+async function showHangarJet(id) {
+  const seq = ++hangarSeq, inst = await makeJet(id, true);
+  if (seq !== hangarSeq) return;
+  if (hangarJet) hangar.remove(hangarJet.root);
+  hangarJet = inst; inst.root.position.y = -1.98 - JET[id].ground; hangar.add(inst.root);
+}
+function renderLobby() {
+  if (!party) return;
+  const me = party.members.find(m => m.id === net.id) || {}, host = party.host === net.id, tdm = party.settings.mode === 'tdm';
+  myTeam = me.team ?? 0;
+  $('pCode').textContent = party.code; $('pCount').textContent = `(${party.members.length})`;
+  $('members').innerHTML = party.members.map(m => `<li><span class="dot" style="background:${tdm ? (m.team ? 'var(--red)' : 'var(--blue)') : 'var(--hot)'}"></span><span>${esc(m.name)}${m.id === party.host ? ' <span class="tagr">host</span>' : ''}${m.id === net.id ? ' <span class="tagr">you</span>' : ''}</span><span class="tagr ${m.ready ? 'ready' : ''}">${JET[m.jet]?.short || ''} · ${m.ready ? 'Ready' : 'Not ready'}</span></li>`).join('');
+  $('teamRow').hidden = !tdm;
+  $('tBlue').setAttribute('aria-pressed', myTeam === 0); $('tRed').setAttribute('aria-pressed', myTeam === 1);
+  $('bReady').setAttribute('aria-pressed', !!me.ready); $('bReady').textContent = me.ready ? 'Ready ✓' : 'Ready';
+  for (const el of ['sMode', 'sMap', 'sScore', 'sTime']) $(el).disabled = !host;
+  $('sMode').value = party.settings.mode; $('sMap').value = party.settings.map; $('sScore').value = party.settings.scoreLimit; $('sTime').value = party.settings.minutes;
+  $('hostHint').textContent = host ? 'You are the host: you pick the settings and start the match.' : 'Only the host can change these.';
+  const readyN = party.members.filter(m => m.ready).length;
+  $('bStart').hidden = !host; $('bStart').disabled = party.state === 'match';
+  $('startHint').textContent = party.state === 'match' ? 'A match is running. Joining it…' : host ? `${readyN} of ${party.members.length} ready. You can start whenever you like.` : 'Waiting for the host to start the match.';
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function chatLine(name, text, sys) {
+  const d = document.createElement('div'); d.innerHTML = sys ? `<span class="muted">${esc(text)}</span>` : `<b>${esc(name)}:</b> ${esc(text)}`;
+  $('chatlog').append(d); $('chatlog').scrollTop = 1e9;
+  if (inMatch) feedLine(sys ? text : `${name}: ${text}`);
+}
+function leaveToMenu() {
+  endMatchLocal(); party = null; net.practice = false; show('menu'); hangar.visible = true;
+}
+
+// ================= Server messages
+function onServer(m) {
+  switch (m.t) {
+    case 'welcome': net.id = m.id; break;
+    case 'error': toast(m.msg, 4000); break;
+    case 'joined': if (!m.code) { party = null; show('menu'); } break;
+    case 'party': {
+      const was = party; party = m.party;
+      if (!inMatch) { show('lobby'); renderJetInfo(); if (!hangarJet) showHangarJet(myJet); }
+      renderLobby();
+      for (const mm of party.members) { const o = others.get(mm.id); if (o) { o.name = mm.name; o.team = mm.team; o.kills = mm.kills; o.deaths = mm.deaths; } }
+      if (was && was.members.length < party.members.length) { const n = party.members.find(x => !was.members.some(y => y.id === x.id)); if (n) chatLine('', n.name + ' joined the party', true); }
+      break;
+    }
+    case 'left': { const o = others.get(m.id); if (o) { chatLine('', o.name + ' left', true); removeOther(m.id); } break; }
+    case 'chat': chatLine(m.name, m.text); break;
+    case 'match': startMatch(m); break;
+    case 'states': onStates(m); break;
+    case 'dmg': onDamage(m); break;
+    case 'kill': onKill(m); break;
+    case 'respawn': onRespawn(m); break;
+    case 'flare': { const o = others.get(m.id); if (o && o.inst) dropFlares(o.inst.root, o.vel); for (const ms of missiles) if (ms.target === m.id && Math.random() < 0.65) ms.target = null; break; }
+    case 'end': onEnd(m); break;
+  }
+}
+
+// ================= Match: local player
+const player = { inst: null, root: null, alive: false, hp: 100, ammo: 600, msl: 4, flr: 6, st: { v: 200, thr: 0.45, p: 0, r: 0, y: 0 }, vel: new THREE.Vector3() };
+const others = new Map();          // id -> remote pilot
+const missiles = [];               // my missiles
+let view = 'chase', seatIdx = 0, chaseDist = 10, look = { yaw: 0, pitch: -0.24 }, orbit = { yaw: 0, pitch: 0.34 };
+let deadUntil = 0, deadBy = '', lastSend = 0, gunT = 0, lock = { id: null, t: 0, locked: false }, lastFlare = 0, mslRegen = 0;
+const isEnemy = o => matchCfg && (matchCfg.mode === 'ffa' || o.team !== myTeam);
+
+async function startMatch(m) {
+  matchCfg = m.settings; endsAt = m.endsAt; if (m.now) net.offset = m.now - Date.now();
+  inMatch = true; hangar.visible = false; show('hud'); $('board').classList.remove('on'); $('dead').classList.remove('on');
+  setMap(matchCfg.map); world.visible = true;
+  for (const id of [...others.keys()]) removeOther(id);
+  $('feed').innerHTML = '';
+  const sp = m.spawns[net.id];
+  if (sp) await spawnMe(sp);
+  renderer.domElement.focus();
+}
+async function spawnMe(sp) {
+  if (player.inst && player.inst.id !== myJet) { scene.remove(player.root); player.inst = null; }
+  if (!player.inst) { player.inst = await makeJet(myJet, true); player.root = player.inst.root; scene.add(player.root); }
+  const top = Math.max(groundAt(sp.x, sp.z), ...[-1, 1].map(k => groundAt(sp.x + Math.sin(sp.heading) * 1500 * k, sp.z + Math.cos(sp.heading) * 1500 * k)));
+  player.root.position.set(sp.x, top + 650, sp.z);
+  player.root.quaternion.setFromAxisAngle(UP, sp.heading);
+  player.root.visible = true; player.alive = true; player.hp = 100; player.ammo = 600; player.msl = 4; player.flr = 6; mslRegen = 0;
+  Object.assign(player.st, { v: 210, thr: 0.5, p: 0, r: 0, y: 0 });
+  setGear(player.inst, false, true); updateTiles(sp.x, sp.z, 1e9);
+  $('dead').classList.remove('on'); setView(view); deadUntil = 0;
+}
+function endMatchLocal() {
+  inMatch = false; matchCfg = null; world.visible = false; scene.background = HANGAR_BG; scene.fog = null;
+  for (const id of [...others.keys()]) removeOther(id);
+  for (const ms of missiles) ms.dead = true; missiles.length = 0;
+  if (player.root) { scene.remove(player.root); player.inst = null; player.root = null; }
+  player.alive = false; scene.add(camera);
+  for (const s of ['dead', 'pause']) $(s).classList.remove('on');
+}
+function onEnd(m) {
+  endMatchLocal();
+  show('lobby'); hangar.visible = true;
+  $('boardTitle').textContent = m.winner === 'Draw' ? 'Draw!' : m.winner + ' wins!';
+  fillBoard(m.board, m.teamScore);
+  $('boardBtns').innerHTML = '<button class="main" id="bBoardOk">Back to the hangar</button>';
+  $('bBoardOk').onclick = () => $('board').classList.remove('on');
+  $('board').classList.add('on');
+}
+function fillBoard(list, teamScore) {
+  const tdm = matchCfg ? matchCfg.mode === 'tdm' : (party && party.settings.mode === 'tdm');
+  const rows = list.slice().sort((a, b) => (tdm ? a.team - b.team : 0) || b.kills - a.kills || a.deaths - b.deaths);
+  $('boardBody').innerHTML = rows.map(r => `<tr><td><span class="dot" style="display:inline-block;margin-right:8px;background:${tdm ? (r.team ? 'var(--red)' : 'var(--blue)') : 'var(--hot)'}"></span>${esc(r.name)}${r.id === net.id ? ' (you)' : ''}</td><td>${JET[r.jet]?.short || ''}</td><td class="n">${r.kills}</td><td class="n">${r.deaths}</td></tr>`).join('');
+  if (tdm && teamScore) $('boardTitle').textContent += `  Blue ${teamScore[0]} – ${teamScore[1]} Red`;
+}
+
+// ================= Remote pilots
+async function ensureOther(id, jet) {
+  let o = others.get(id);
+  const pm = party && party.members.find(x => x.id === id);
+  if (!o) { o = { id, buf: [], alive: true, hp: 100, name: pm ? pm.name : 'Pilot', team: pm ? pm.team : 0, vel: new THREE.Vector3(), loading: false, info: JET[jet], jet: null, ms: [] }; others.set(id, o); }
+  if (o.jet !== jet && !o.loading) {
+    o.loading = true; const inst = await makeJet(jet, false); o.loading = false;
+    if (o.inst) scene.remove(o.inst.root);
+    o.inst = inst; o.jet = jet; o.info = JET[jet]; setGear(inst, false, true); scene.add(inst.root);
+  }
+  return o;
+}
+function removeOther(id) { const o = others.get(id); if (!o) return; if (o.inst) scene.remove(o.inst.root); const mk = $('mk' + id); if (mk) mk.remove(); others.delete(id); }
+function onStates(m) {
+  const est = m.now - Date.now(); net.offset = net.offset === null ? est : net.offset * 0.95 + est * 0.05;
+  for (const [id, jet, p, q, v, f, b, gr, sw, ms, hp] of m.s) {
+    if (id === net.id) continue;
+    ensureOther(id, jet).then(o => {
+      o.buf.push({ t: m.now, p, q, v }); if (o.buf.length > 30) o.buf.shift();
+      o.f = f; o.b = b; o.gr = gr; o.sw = sw; o.ms = ms || []; o.hp = hp; o.alive = true; o.seen = performance.now();
+    });
+  }
+}
+const qa = new THREE.Quaternion(), qb = new THREE.Quaternion(), va = new THREE.Vector3(), vb = new THREE.Vector3();
+function updateOthers(dt) {
+  const T = Date.now() + (net.offset || 0) - 110;
+  for (const o of others.values()) {
+    if (!o.inst) continue;
+    const r = o.inst.root;
+    r.visible = o.alive && performance.now() - (o.seen || 0) < 2000;
+    if (!r.visible) continue;
+    const buf = o.buf; let i = buf.length - 1;
+    while (i > 0 && buf[i - 1].t > T) i--;
+    const A = buf[Math.max(0, i - 1)], B = buf[i];
+    if (A && B) {
+      const k = B.t === A.t ? 1 : THREE.MathUtils.clamp((T - A.t) / (B.t - A.t), 0, 1.5);
+      va.fromArray(A.p); vb.fromArray(B.p); r.position.lerpVectors(va, vb, k);
+      qa.fromArray(A.q); qb.fromArray(B.q); r.quaternion.slerpQuaternions(qa, qb, Math.min(k, 1));
+      o.vel.set(0, 0, 1).applyQuaternion(r.quaternion).multiplyScalar(B.v);
+    }
+    setGear(o.inst, !!o.gr); o.inst.mixer.update(dt); setSweep(o.inst, o.sw);
+    for (const f of o.inst.flames) f.visible = !!o.b;
+    if (o.f && (o.gunT = (o.gunT || 0) - dt) <= 0) {          // their gunfire (visual only)
+      o.gunT = 0.07; const fw = va.set(0, 0, 1).applyQuaternion(r.quaternion);
+      fireBullet(vb.copy(r.position).addScaledVector(fw, o.info.len * 0.5), fw.clone().multiplyScalar(1000).add(o.vel), o.id, false);
+    }
+    if (o.hp < 50 && Math.random() < dt * 30) puff(r.position, o.vel.clone().multiplyScalar(0.1), 2.5, 1.5, 6, o.hp < 25 ? 0x333333 : 0x777777, 0xaab4bc);
+    for (const mm of o.ms) {                                   // their missiles
+      const mesh = mslMesh(); mesh.position.set(mm[0], mm[1], mm[2]);
+      if (mm[4] !== undefined) mesh.quaternion.setFromUnitVectors(ZAX, va.set(mm[4], mm[5], mm[6]).normalize());
+      if (Math.random() < dt * 40) puff(mesh.position, ZERO, 1.6, 0.8, 3.5, 0xffffff, 0xb0b8c0);
+    }
+  }
+}
+
+// ================= Combat
+function hitEnemy(o, weapon) {
+  sfx.hit();
+  if (net.practice) practice.hit(o, weapon); else send({ t: 'hit', target: o.id, weapon });
+}
+function onDamage(m) {
+  if (m.id === net.id) {
+    player.hp = m.hp; $('flash').style.opacity = 1; setTimeout(() => $('flash').style.opacity = 0, 120);
+  } else { const o = others.get(m.id); if (o) o.hp = m.hp; }
+}
+function nameOf(id) { if (id === net.id) return 'You'; if (net.practice) { const b = practice.bot(id); if (b) return b.name; } const o = others.get(id); if (o) return o.name; const pm = party && party.members.find(x => x.id === id); return pm ? pm.name : 'Someone'; }
+function feedLine(text) { const d = document.createElement('div'); d.textContent = text; $('feed').prepend(d); setTimeout(() => d.remove(), 7000); while ($('feed').children.length > 6) $('feed').lastChild.remove(); }
+function onKill(m) {
+  const how = m.weapon === 'crash' ? (m.killer ? ' forced ' + nameOf(m.victim) + ' into the ground' : '') : (m.weapon === 'missile' ? ' 🚀 ' : ' ✈ ');
+  feedLine(m.weapon === 'crash' && !m.killer ? nameOf(m.victim) + ' crashed' : m.weapon === 'crash' ? nameOf(m.killer) + how : nameOf(m.killer) + how + nameOf(m.victim));
+  if (party && m.teamScore && party.match) party.match.teamScore = m.teamScore;
+  if (m.victim === net.id) {
+    if (player.alive && player.root) explode(player.root.position.clone(), 1.4);
+    player.alive = false; if (player.root) player.root.visible = false;
+    deadUntil = performance.now() + 5000;
+    $('deadTitle').textContent = m.weapon === 'crash' && !m.killer ? 'You crashed' : 'Shot down';
+    $('deadText').textContent = m.killer && m.killer !== net.id ? 'by ' + nameOf(m.killer) + (m.weapon === 'missile' ? ' with a missile' : m.weapon === 'gun' ? ' with guns' : '') : '';
+    $('dead').classList.add('on');
+  } else {
+    const o = others.get(m.victim);
+    if (o && o.inst) { explode(o.inst.root.position.clone(), 1.4); o.alive = false; o.inst.root.visible = false; o.buf = []; }
+    if (m.killer === net.id) toast('Enemy down: ' + nameOf(m.victim), 1800);
+  }
+}
+function onRespawn(m) {
+  if (m.id === net.id) spawnMe(m.spawn);
+  else { const o = others.get(m.id); if (o) { o.alive = true; o.hp = 100; o.buf = []; } }
+}
+function dropFlares(root, vel) {
+  for (let i = 0; i < 8; i++) {
+    const v = vel.clone().multiplyScalar(0.3).add(new THREE.Vector3((Math.random() - 0.5) * 60, -10 - Math.random() * 30, (Math.random() - 0.5) * 60));
+    puff(root.position, v, 2.2, 1.6, 0.4, 0xffffff, 0xff8830);
+  }
+}
+function launchMissile() {
+  if (!player.alive || player.msl <= 0) return;
+  player.msl--; sfx.launch();
+  const fw = new THREE.Vector3(0, 0, 1).applyQuaternion(player.root.quaternion);
+  missiles.push({ pos: player.root.position.clone().addScaledVector(fw, 4).add(new THREE.Vector3(0, -1.2, 0)), dir: fw.clone(), speed: player.st.v + 20, life: 0, target: lock.locked ? lock.id : null });
+  feedLine(lock.locked ? 'Missile away: ' + nameOf(lock.id) : 'Missile away (no lock)');
+}
+const tv = new THREE.Vector3(), lead = new THREE.Vector3();
+function targetPos(id) { if (net.practice) { const b = practice.bot(id); return b && b.alive ? b.root.position : null; } const o = others.get(id); return o && o.alive && o.inst && o.inst.root.visible ? o.inst.root.position : null; }
+function updateMissiles(dt) {
+  for (const ms of missiles) {
+    ms.life += dt; ms.speed = Math.min(720, ms.speed + 260 * dt);
+    const tp = ms.target != null ? targetPos(ms.target) : null;
+    if (tp && ms.life > 0.25) {
+      const o = net.practice ? practice.bot(ms.target) : others.get(ms.target);
+      const d = tp.distanceTo(ms.pos);
+      lead.copy(tp).addScaledVector(o.vel, Math.min(d / ms.speed, 3));
+      tv.subVectors(lead, ms.pos).normalize();
+      const ang = ms.dir.angleTo(tv), maxTurn = 0.62 * dt;
+      if (ang > maxTurn) ms.dir.lerp(tv, maxTurn / ang).normalize(); else ms.dir.copy(tv);
+      if (ang > 1.4) ms.target = null;                  // overshot: lost lock
+      if (d < 16) { ms.dead = true; explode(ms.pos.clone(), 0.6); hitEnemy(o, 'missile'); continue; }
+    }
+    ms.pos.addScaledVector(ms.dir, ms.speed * dt);
+    if (Math.random() < dt * 50) puff(ms.pos, ZERO, 1.8, 0.8, 4, 0xffffff, 0xb0b8c0);
+    if (ms.life > 11 || ms.pos.y < groundAt(ms.pos.x, ms.pos.z)) { ms.dead = true; if (ms.life <= 11) explode(ms.pos.clone(), 0.4); }
+  }
+  for (let i = missiles.length - 1; i >= 0; i--) if (missiles[i].dead) missiles.splice(i, 1);
+  for (const ms of missiles) { const mesh = mslMesh(); mesh.position.copy(ms.pos); mesh.quaternion.setFromUnitVectors(ZAX, ms.dir); }
+}
+
+// ================= Flying (same model as the viewer)
+const keys = new Set(), UP = new THREE.Vector3(0, 1, 0);
+const fwd = new THREE.Vector3(), right = new THREE.Vector3(), jup = new THREE.Vector3(), v3 = new THREE.Vector3(), q1 = new THREE.Quaternion();
+const ease = (cur, target, rate, dt) => cur + (target - cur) * (1 - Math.exp(-rate * dt));
+function setView(v) {
+  view = v; if (!player.root) return;
+  if (v === 'cockpit') { player.root.add(camera); camera.position.fromArray(player.inst.info.seats[Math.min(seatIdx, player.inst.info.seats.length - 1)]); camera.near = 0.03; camera.fov = 70; }
+  else { scene.add(camera); camera.near = 0.5; camera.fov = 46; chaseDist = player.inst.info.len * 0.55; placeChase(1); }
+  camera.updateProjectionMatrix();
+}
+function placeChase(snap) {
+  const r = player.root;
+  v3.set(0, 0, -chaseDist).applyEuler(new THREE.Euler(orbit.pitch, orbit.yaw, 0, 'YXZ')); v3.y += 1.2;
+  const target = v3.applyQuaternion(r.quaternion).add(r.position);
+  camera.position.lerp(target, snap === 1 ? 1 : 1 - Math.exp(-snap * 7));
+  jup.set(0, 1, 0).applyQuaternion(r.quaternion);
+  camera.up.lerp(jup, snap === 1 ? 1 : 1 - Math.exp(-snap * 3)).normalize();
+  fwd.set(0, 0, 1).applyQuaternion(r.quaternion);
+  camera.lookAt(v3.copy(r.position).addScaledVector(fwd, 5).addScaledVector(jup, 0.8));
+}
+function fly(dt) {
+  const r = player.root, st = player.st, H = player.inst.info.handling, k = n => keys.has(n) ? 1 : 0;
+  fwd.set(0, 0, 1).applyQuaternion(r.quaternion); right.set(-1, 0, 0).applyQuaternion(r.quaternion); jup.set(0, 1, 0).applyQuaternion(r.quaternion);
+  st.thr = THREE.MathUtils.clamp(st.thr + (k('thr') - k('brk')) * 0.45 * dt, 0, 1);
+  const gearDrag = player.inst.gearDown ? 2.2 : 1;
+  st.v += (st.thr * H.thrust - H.thrust / (H.vmax * H.vmax) * gearDrag * st.v * st.v - 9.81 * fwd.y) * dt;
+  st.v = THREE.MathUtils.clamp(st.v, 45, H.vmax + 30);
+  const auth = THREE.MathUtils.clamp((st.v - 45) / 140, 0.2, 1);
+  const bank = Math.atan2(-right.y, jup.y);
+  const rollIn = k('right') - k('left');
+  st.p = ease(st.p, (k('up') - k('down')) * H.pitch * auth, 4.5, dt);
+  st.r = ease(st.r, rollIn ? rollIn * H.roll * auth : (Math.abs(bank) < 1.0 ? -bank * 0.4 : 0), 4, dt);
+  st.y = ease(st.y, (k('yl') - k('yr')) * 0.3 * auth, 3, dt);
+  r.rotateX(st.p * dt); r.rotateZ(st.r * dt); r.rotateY(st.y * dt);
+  if (st.v < 75) { q1.setFromAxisAngle(v3.copy(right), -(75 - st.v) / 60 * dt); r.quaternion.premultiply(q1); }
+  player.vel.copy(fwd).multiplyScalar(st.v);
+  r.position.addScaledVector(fwd, st.v * dt);
+  const agl = r.position.y - groundAt(r.position.x, r.position.z);
+  if (agl < 2.5) { crash(); return; }
+  // Guns
+  gunT -= dt;
+  if ((k('fire') || mouseFire) && player.ammo > 0 && gunT <= 0) {
+    gunT = 0.065; player.ammo--; sfx.gun();
+    const spread = v3.set((Math.random() - .5) * 0.004, (Math.random() - .5) * 0.004, 0).applyQuaternion(r.quaternion);
+    fireBullet(r.position.clone().addScaledVector(fwd, player.inst.info.len * 0.5), fwd.clone().add(spread).multiplyScalar(1000).add(player.vel), net.id, true);
+  }
+  // Missile lock: enemy nearest the nose within 14° and 4.5 km
+  let best = null, bestA = 0.245;
+  for (const o of allTargets()) { tv.subVectors(o.pos, r.position); const d = tv.length(); if (d < 250 || d > 4500) continue; const a = fwd.angleTo(tv); if (a < bestA) { bestA = a; best = o; } }
+  if (best && best.id === lock.id) lock.t += dt; else { lock = { id: best ? best.id : null, t: 0, locked: false }; }
+  lock.locked = !!best && lock.t > 1.1;
+  sfx.lock(best ? (lock.locked ? 2 : 1) : 0);
+  if (player.msl < 4 && (mslRegen += dt) > 25) { player.msl++; mslRegen = 0; }
+  // Wing sweep, afterburner, damage smoke
+  const kt = st.v * 1.944;
+  if (player.inst.info.sweep) setSweep(player.inst, THREE.MathUtils.clamp((kt - 330) / (620 - 330), 0, 1) * 48);
+  player.sweep = player.inst.info.sweep ? THREE.MathUtils.clamp((kt - 330) / 290, 0, 1) * 48 : 0;
+  for (const f of player.inst.flames) f.visible = st.thr > 0.88;
+  if (player.hp < 50 && Math.random() < dt * 30) puff(r.position, ZERO, 2.5, 1.5, 6, player.hp < 25 ? 0x333333 : 0x777777, 0xaab4bc);
+  // HUD numbers and warnings
+  $('hSpd').textContent = Math.round(kt) + ' kt'; $('hAlt').textContent = Math.round(r.position.y * 3.281).toLocaleString('en') + ' ft';
+  $('hThr').textContent = 'THR ' + Math.round(st.thr * 100) + '%' + (st.thr > 0.88 ? ' AB' : '');
+  const incoming = incomingMissile();
+  let warn = '';
+  if (incoming) { warn = 'MISSILE! Press Z for flares'; sfx.warn(); }
+  else if (agl < 300 && fwd.y < -0.08) warn = 'PULL UP';
+  else if (Math.hypot(r.position.x, r.position.z) > 11000) warn = 'Return to the battle area';
+  $('warn').textContent = warn; $('warn').style.display = warn ? 'block' : 'none';
+}
+function crash() {
+  if (!player.alive) return;
+  player.alive = false;
+  if (net.practice) practice.playerDied(null, 'crash'); else send({ t: 'crash' });
+  explode(player.root.position.clone(), 1.4); player.root.visible = false;
+  deadUntil = performance.now() + 5000; $('deadTitle').textContent = 'You crashed'; $('deadText').textContent = ''; $('dead').classList.add('on');
+}
+function allTargets() {
+  const out = [];
+  if (net.practice) { for (const b of practice.bots) if (b.alive) out.push({ id: b.id, pos: b.root.position, vel: b.vel }); }
+  else for (const o of others.values()) if (o.alive && o.inst && o.inst.root.visible && isEnemy(o)) out.push({ id: o.id, pos: o.inst.root.position, vel: o.vel });
+  return out;
+}
+function incomingMissile() {
+  if (net.practice) return practice.botMissiles.some(m => m.target === 'me');
+  for (const o of others.values()) for (const mm of o.ms) if (mm[3] === net.id) return true;
+  return false;
+}
+function sendState(now) {
+  if (net.practice || !player.alive || now - lastSend < 50) return;
+  lastSend = now;
+  const r = player.root, rd = x => Math.round(x * 100) / 100;
+  send({ t: 'state', p: r.position.toArray().map(rd), q: r.quaternion.toArray().map(x => Math.round(x * 10000) / 10000), v: rd(player.st.v),
+    f: (keys.has('fire') || mouseFire) && player.ammo > 0, b: player.st.thr > 0.88, gr: player.inst.gearDown, sw: Math.round(player.sweep || 0),
+    ms: missiles.slice(0, 6).map(m => [Math.round(m.pos.x), Math.round(m.pos.y), Math.round(m.pos.z), m.target, rd(m.dir.x), rd(m.dir.y), rd(m.dir.z)]) });
+}
+
+// ================= HUD markers, lock box, gun pip
+const proj = new THREE.Vector3();
+function toScreen(pos) {
+  proj.copy(pos).project(camera);
+  const behind = proj.z > 1, W = innerWidth, H = innerHeight;
+  return { x: (proj.x * 0.5 + 0.5) * W, y: (-proj.y * 0.5 + 0.5) * H, behind, on: !behind && Math.abs(proj.x) < 1 && Math.abs(proj.y) < 1 };
+}
+function updateHud() {
+  const list = net.practice ? practice.bots.map(b => ({ id: b.id, name: b.name, alive: b.alive, pos: b.root.position, enemy: true, hp: b.hp }))
+    : [...others.values()].filter(o => o.inst).map(o => ({ id: o.id, name: o.name, alive: o.alive && o.inst.root.visible, pos: o.inst.root.position, enemy: isEnemy(o), hp: o.hp }));
+  const seen = new Set();
+  for (const t of list) {
+    let el = $('mk' + t.id);
+    if (!el) { el = document.createElement('div'); el.className = 'mk'; el.id = 'mk' + t.id; el.innerHTML = '<i></i><span></span>'; $('markers').append(el); }
+    seen.add(el.id);
+    const s = toScreen(t.pos);
+    if (!t.alive || !player.root || s.behind) { el.style.display = 'none'; continue; }
+    const d = t.pos.distanceTo(player.root.position);
+    el.style.display = 'block'; el.style.left = THREE.MathUtils.clamp(s.x, 30, innerWidth - 30) + 'px'; el.style.top = THREE.MathUtils.clamp(s.y, 30, innerHeight - 30) + 'px';
+    el.style.color = t.enemy ? 'var(--red)' : 'var(--blue)';
+    el.lastChild.textContent = `${t.name} · ${(d / 1000).toFixed(1)} km${t.hp < 100 ? ' · ' + Math.round(t.hp) + '%' : ''}`;
+  }
+  for (const el of [...$('markers').children]) if (!seen.has(el.id)) el.remove();
+  // Lock box
+  const lb = $('lockbox'), lt = lock.id != null && allTargets().find(t => t.id === lock.id);
+  if (lt && player.alive) { const s = toScreen(lt.pos); lb.style.display = s.on ? 'block' : 'none'; lb.style.left = s.x + 'px'; lb.style.top = s.y + 'px'; lb.classList.toggle('locked', lock.locked); } else lb.style.display = 'none';
+  // Gun lead pip on the nearest enemy in front
+  const pip = $('pip'); pip.style.display = 'none';
+  if (player.alive && player.root) {
+    fwd.set(0, 0, 1).applyQuaternion(player.root.quaternion);
+    let best = null, bd = 1800;
+    for (const t of allTargets()) { const d = t.pos.distanceTo(player.root.position); if (d < bd && fwd.angleTo(tv.subVectors(t.pos, player.root.position)) < 0.6) { bd = d; best = t; } }
+    if (best) { lead.copy(best.pos).addScaledVector(best.vel, bd / 1000); const s = toScreen(lead); if (s.on) { pip.style.display = 'block'; pip.style.left = s.x + 'px'; pip.style.top = s.y + 'px'; } }
+  }
+  $('hHp').style.width = Math.max(0, player.hp) + '%'; $('hHp').style.background = player.hp > 50 ? 'var(--ok)' : player.hp > 25 ? '#ffc840' : 'var(--red)';
+  $('hGun').textContent = 'GUN ' + player.ammo; $('hMsl').textContent = 'MSL ' + player.msl + (lock.locked ? ' LOCK' : ''); $('hFlr').textContent = 'FLR ' + player.flr;
+  $('hJet').textContent = player.inst ? player.inst.info.short : '';
+  // Score + timer
+  const left = Math.max(0, (endsAt - Date.now() - (net.practice ? 0 : (net.offset || 0) * 0)) / 1000);
+  $('hTime').textContent = `${Math.floor(left / 60)}:${String(Math.floor(left % 60)).padStart(2, '0')} · first to ${matchCfg.scoreLimit}`;
+  if (net.practice) $('hScore').textContent = `${practice.kills} kills`;
+  else if (matchCfg.mode === 'tdm') { const ts = party && party.match ? party.match.teamScore : [0, 0]; $('hScore').innerHTML = `<span style="color:var(--blue)">Blue ${ts[0]}</span> – <span style="color:var(--red)">${ts[1]} Red</span>`; }
+  else { const me = party && party.members.find(m => m.id === net.id); const top = party ? Math.max(...party.members.map(m => m.kills)) : 0; $('hScore').textContent = `You ${me ? me.kills : 0} · leader ${top}`; }
+  if (deadUntil) $('deadTimer').textContent = 'Respawning in ' + Math.max(0, Math.ceil((deadUntil - performance.now()) / 1000)) + ' s';
+}
+
+// ================= Input
+let mouseFire = false, drag = null;
+const KEYMAP = { KeyW: 'up', ArrowUp: 'up', KeyS: 'down', ArrowDown: 'down', KeyA: 'left', ArrowLeft: 'left', KeyD: 'right', ArrowRight: 'right', KeyQ: 'yl', KeyE: 'yr', KeyR: 'thr', ShiftLeft: 'thr', KeyF: 'brk', ControlLeft: 'brk', Space: 'fire' };
+addEventListener('keydown', e => {
+  if (!inMatch || ['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+  if (KEYMAP[e.code]) { keys.add(KEYMAP[e.code]); e.preventDefault(); }
+  if (e.code === 'Tab') { e.preventDefault(); showBoard(true); }
+  if (e.repeat) return;
+  if (e.code === 'KeyX') launchMissile();
+  if (e.code === 'KeyZ') flares();
+  if (e.code === 'KeyG' && player.inst) setGear(player.inst, !player.inst.gearDown);
+  if (e.code === 'KeyT') setView(view === 'cockpit' ? 'chase' : 'cockpit');
+  if (e.code === 'KeyV' && player.inst && player.inst.info.seats.length > 1) { seatIdx = 1 - seatIdx; if (view === 'cockpit') setView('cockpit'); }
+  if (e.code === 'KeyC') { look = { yaw: 0, pitch: -0.24 }; orbit = { yaw: 0, pitch: 0.34 }; }
+  if (e.code === 'KeyM') sfx.toggle();
+  if (e.code === 'Escape') { $('bEndMatch').hidden = !(net.practice || (party && party.host === net.id)); $('pause').classList.toggle('on'); }
+  if (e.code === 'Enter' && !net.practice) openChat();
+});
+addEventListener('keyup', e => { if (KEYMAP[e.code]) keys.delete(KEYMAP[e.code]); if (e.code === 'Tab') showBoard(false); });
+addEventListener('blur', () => { keys.clear(); mouseFire = false; });
+function openChat() {
+  const inp = document.createElement('input'); inp.maxLength = 140; inp.placeholder = 'Message to the party, Enter to send, Esc to cancel';
+  Object.assign(inp.style, { position: 'fixed', left: '16px', bottom: '120px', width: 'min(420px,80vw)', zIndex: 5, background: 'rgba(10,20,30,.9)' });
+  document.body.append(inp); inp.focus(); keys.clear();
+  inp.addEventListener('keydown', ev => { ev.stopPropagation(); if (ev.key === 'Enter') { if (inp.value.trim()) send({ t: 'chat', text: inp.value.trim() }); inp.remove(); renderer.domElement.focus(); } if (ev.key === 'Escape') { inp.remove(); renderer.domElement.focus(); } });
+  inp.addEventListener('blur', () => inp.remove());
+}
+function flares() {
+  if (!player.alive || player.flr <= 0 || performance.now() - lastFlare < 1200) return;
+  player.flr--; lastFlare = performance.now(); dropFlares(player.root, player.vel);
+  if (net.practice) practice.flare(); else send({ t: 'flare' });
+}
+function showBoard(on) {
+  if (!inMatch) return;
+  if (on) {
+    $('boardTitle').textContent = net.practice ? 'Practice' : (matchCfg.mode === 'tdm' ? 'Team deathmatch' : 'Free for all');
+    const list = net.practice ? [{ id: net.id, name: 'You', jet: myJet, kills: practice.kills, deaths: practice.deaths, team: 0 }, ...practice.bots.map(b => ({ id: b.id, name: b.name, jet: b.jet, kills: b.kills, deaths: b.deaths, team: 1 }))] : party.members;
+    fillBoard(list, party && party.match ? party.match.teamScore : null); $('boardBtns').innerHTML = '';
+  }
+  $('board').classList.toggle('on', on);
+}
+renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+renderer.domElement.addEventListener('pointerdown', e => {
+  sfx.unlock(); if (!inMatch) return;
+  if (e.button === 0 && e.pointerType === 'mouse') mouseFire = true;
+  else { drag = { x: e.clientX, y: e.clientY }; renderer.domElement.setPointerCapture(e.pointerId); }
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!drag) return;
+  const dx = (e.clientX - drag.x) * 0.005, dy = (e.clientY - drag.y) * 0.005; drag = { x: e.clientX, y: e.clientY };
+  if (view === 'cockpit') { look.yaw = THREE.MathUtils.clamp(look.yaw - dx, -2.6, 2.6); look.pitch = THREE.MathUtils.clamp(look.pitch - dy, -1.2, 1.3); }
+  else { orbit.yaw -= dx; orbit.pitch = THREE.MathUtils.clamp(orbit.pitch + dy, -0.6, 1.4); }
+});
+addEventListener('pointerup', e => { if (e.button === 0) mouseFire = false; drag = null; });
+renderer.domElement.addEventListener('wheel', e => { if (inMatch && view === 'chase' && player.inst) { e.preventDefault(); chaseDist = THREE.MathUtils.clamp(chaseDist * (e.deltaY > 0 ? 1.1 : 0.9), player.inst.info.len * 0.47, 90); } }, { passive: false });
+for (const b of document.querySelectorAll('#pad button')) {
+  const k = b.dataset.k;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); if (k === 'msl') launchMissile(); else if (k === 'flr') flares(); else keys.add(k); });
+  for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, () => keys.delete(k));
+}
+$('bResume').onclick = () => $('pause').classList.remove('on');
+$('bQuit').onclick = () => { $('pause').classList.remove('on'); if (net.practice) { practice.stop(); return; } send({ t: 'leave' }); leaveToMenu(); };
+$('bEndMatch').onclick = () => { $('pause').classList.remove('on'); if (net.practice) practice.stop(); else send({ t: 'end' }); };
+
+// ================= Practice mode: you against four bots, all in the browser
+const practice = (() => {
+  const P = { bots: [], botMissiles: [], kills: 0, deaths: 0, running: false };
+  const NAMES = ['Viper', 'Falcon', 'Ghost', 'Rook'];
+  let nextBotId = 1000;
+  const spawnBot = b => {
+    const a = Math.random() * Math.PI * 2, d = 3000 + Math.random() * 2500;
+    const x = (player.root ? player.root.position.x : 0) + Math.cos(a) * d, z = (player.root ? player.root.position.z : 0) + Math.sin(a) * d;
+    b.root.position.set(x, groundAt(x, z) + 800 + Math.random() * 600, z);
+    b.root.quaternion.setFromAxisAngle(UP, Math.random() * Math.PI * 2);
+    b.alive = true; b.hp = 100; b.root.visible = true; b.speed = 220; b.mslCool = 8 + Math.random() * 10;
+  };
+  P.start = async () => {
+    net.practice = true; P.running = true; P.kills = 0; P.deaths = 0; net.id = net.id || 'me';
+    party = null; matchCfg = { mode: 'ffa', map: ['islands', 'canyon', 'alps'][Math.floor(Math.random() * 3)], scoreLimit: 15, minutes: 10 };
+    endsAt = Date.now() + 10 * 60000;
+    inMatch = true; hangar.visible = false; show('hud'); setMap(matchCfg.map); world.visible = true; $('feed').innerHTML = '';
+    await spawnMe({ x: 0, z: 0, heading: 0 });
+    for (const b of P.bots) scene.remove(b.root);
+    P.bots = []; P.botMissiles = [];
+    for (let i = 0; i < 4; i++) {
+      const jet = JETS[(i + 1) % JETS.length].id, inst = await makeJet(jet, false);
+      setGear(inst, false, true); scene.add(inst.root);
+      const b = { id: nextBotId++, name: NAMES[i], jet, inst, root: inst.root, vel: new THREE.Vector3(), kills: 0, deaths: 0, gunT: 0, info: JET[jet] };
+      spawnBot(b); P.bots.push(b);
+    }
+    feedLine('Practice: shoot down the bots. First to 15 kills.');
+  };
+  P.stop = () => { P.running = false; for (const b of P.bots) scene.remove(b.root); P.bots = []; P.botMissiles = []; for (const m of P.botMissiles) m.dead = true; leaveToMenu(); };
+  P.bot = id => P.bots.find(b => b.id === id);
+  P.handle = m => { if (m.t === 'leave') P.stop(); };
+  P.hit = (b, weapon) => {
+    if (!b.alive) return;
+    b.hp -= weapon === 'missile' ? 65 : 4;
+    if (b.hp <= 0) {
+      b.alive = false; b.deaths++; P.kills++; explode(b.root.position.clone(), 1.4); b.root.visible = false;
+      feedLine('You ' + (weapon === 'missile' ? '🚀 ' : '✈ ') + b.name); toast('Enemy down: ' + b.name, 1800);
+      setTimeout(() => P.running && spawnBot(b), 5000);
+      if (P.kills >= 15) setTimeout(() => { toast('You won the practice match!', 4000); P.stop(); }, 2000);
+    }
+  };
+  P.playerDied = (bot, weapon) => {
+    P.deaths++; if (bot) bot.kills++;
+    feedLine(bot ? bot.name + (weapon === 'missile' ? ' 🚀 ' : ' ✈ ') + 'You' : 'You crashed');
+    setTimeout(() => P.running && spawnMe({ x: player.root.position.x, z: player.root.position.z, heading: Math.random() * 6.28 }), 5000);
+  };
+  P.flare = () => { for (const m of P.botMissiles) if (m.target === 'me' && Math.random() < 0.65) m.target = null; };
+  const dmgMe = (bot, n, weapon) => {
+    if (!player.alive) return;
+    player.hp -= n; $('flash').style.opacity = 1; setTimeout(() => $('flash').style.opacity = 0, 120);
+    if (player.hp <= 0) {
+      player.alive = false; explode(player.root.position.clone(), 1.4); player.root.visible = false;
+      deadUntil = performance.now() + 5000; $('deadTitle').textContent = 'Shot down'; $('deadText').textContent = 'by ' + bot.name; $('dead').classList.add('on');
+      P.playerDied(bot, weapon);
+    }
+  };
+  const d3 = new THREE.Vector3(), lft = new THREE.Vector3(), up2 = new THREE.Vector3(), mtx = new THREE.Matrix4(), f3 = new THREE.Vector3();
+  P.update = dt => {
+    if (!P.running) return;
+    for (const b of P.bots) {
+      if (!b.alive) continue;
+      const r = b.root; f3.set(0, 0, 1).applyQuaternion(r.quaternion);
+      const tgt = player.alive ? player.root.position : null;
+      // Where to go: chase the player with a lead, climb away from the ground
+      if (tgt) { d3.copy(tgt).addScaledVector(player.vel, 0.8).sub(r.position); }
+      else d3.copy(f3);
+      const agl = r.position.y - groundAt(r.position.x + f3.x * 400, r.position.z + f3.z * 400);
+      d3.normalize(); if (agl < 500) d3.y = Math.max(d3.y, 0.5); d3.normalize();
+      const ang = f3.angleTo(d3), turn = Math.min(ang, 0.55 * dt);
+      if (ang > 1e-4) { const ax = new THREE.Vector3().crossVectors(f3, d3).normalize(); f3.applyAxisAngle(ax, turn); }
+      // Bank into the turn
+      lft.crossVectors(UP, f3).normalize(); const lat = d3.dot(lft);
+      up2.copy(UP).addScaledVector(lft, -lat * 2.2).normalize();
+      lft.crossVectors(up2, f3).normalize(); up2.crossVectors(f3, lft).normalize();
+      mtx.makeBasis(lft, up2, f3); q1.setFromRotationMatrix(mtx); r.quaternion.slerp(q1, 1 - Math.exp(-dt * 4));
+      b.speed = THREE.MathUtils.clamp(b.speed + (-9.81 * f3.y * 0.8 + (240 - b.speed) * 0.2) * dt, 140, 330);
+      b.vel.copy(f3).multiplyScalar(b.speed); r.position.addScaledVector(b.vel, dt);
+      if (r.position.y < groundAt(r.position.x, r.position.z) + 3) { P.hit(b, 'missile'); P.hit(b, 'missile'); continue; }
+      for (const f of b.inst.flames) f.visible = b.speed > 290;
+      if (b.hp < 50 && Math.random() < dt * 30) puff(r.position, ZERO, 2.5, 1.5, 6, 0x555555, 0xaab4bc);
+      if (!tgt) continue;
+      const dist = r.position.distanceTo(tgt), aim = f3.angleTo(d3.subVectors(tgt, r.position));
+      if (aim < 0.06 && dist < 1100 && (b.gunT -= dt) <= 0) {
+        b.gunT = 0.08;
+        fireBullet(r.position.clone().addScaledVector(f3, b.info.len * 0.5), f3.clone().multiplyScalar(1000).add(b.vel), b.id, false);
+        if (Math.random() < 0.28) dmgMe(b, 4, 'gun');
+      }
+      if ((b.mslCool -= dt) <= 0 && aim < 0.2 && dist < 3500 && dist > 600) {
+        b.mslCool = 18 + Math.random() * 12;
+        P.botMissiles.push({ pos: r.position.clone(), dir: f3.clone(), speed: b.speed + 20, life: 0, target: 'me', bot: b });
+        feedLine(b.name + ' fired a missile at you!');
+      }
+    }
+    for (const m of P.botMissiles) {
+      m.life += dt; m.speed = Math.min(650, m.speed + 220 * dt);
+      if (m.target === 'me' && player.alive) {
+        const d = player.root.position.distanceTo(m.pos);
+        lead.copy(player.root.position).addScaledVector(player.vel, Math.min(d / m.speed, 3));
+        tv.subVectors(lead, m.pos).normalize(); const a = m.dir.angleTo(tv), mt = 0.5 * dt;
+        if (a > mt) m.dir.lerp(tv, mt / a).normalize(); else m.dir.copy(tv);
+        if (a > 1.4) m.target = null;
+        if (d < 16) { m.dead = true; explode(m.pos.clone(), 0.6); dmgMe(m.bot, 65, 'missile'); continue; }
+      }
+      m.pos.addScaledVector(m.dir, m.speed * dt);
+      if (Math.random() < dt * 50) puff(m.pos, ZERO, 1.8, 0.8, 4, 0xffffff, 0xb0b8c0);
+      if (m.life > 11 || m.pos.y < groundAt(m.pos.x, m.pos.z)) m.dead = true;
+    }
+    P.botMissiles = P.botMissiles.filter(m => !m.dead);
+    for (const m of P.botMissiles) { const mesh = mslMesh(); mesh.position.copy(m.pos); mesh.quaternion.setFromUnitVectors(ZAX, m.dir); }
+  };
+  return P;
+})();
+
+// ================= Main loop
+function resize() { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+scene.background = HANGAR_BG;
+const clock = new THREE.Clock();
+renderer.setAnimationLoop(() => {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, now = performance.now();
+  if (inMatch) {
+    mslUsed = 0;
+    if (player.alive && player.root) fly(dt);
+    if (player.inst) player.inst.mixer.update(dt);
+    if (net.practice) { practice.update(dt); } else updateOthers(dt);
+    if (net.practice) for (const b of practice.bots) b.inst.mixer.update(dt);
+    updateMissiles(dt);
+    for (let i = mslUsed; i < mslPool.length; i++) mslPool[i].visible = false;
+    const c = player.root ? player.root.position : ZERO;
+    updateTiles(c.x, c.z, 5);
+    water.position.x = Math.round(c.x / 1000) * 1000; water.position.z = Math.round(c.z / 1000) * 1000;
+    for (const cl of clouds) {
+      const b = cl.userData.base;
+      cl.position.set(c.x + THREE.MathUtils.euclideanModulo(b.x - c.x + CWR, 2 * CWR) - CWR, cl.userData.y, c.z + THREE.MathUtils.euclideanModulo(b.z - c.z + CWR, 2 * CWR) - CWR);
+    }
+    sun.position.set(c.x + 4000, 9000, c.z + 3000); sun.target.position.copy(c);
+    if (player.root) {
+      if (view === 'cockpit' && player.alive) camera.rotation.set(look.pitch, Math.PI + look.yaw, 0, 'YXZ');
+      else if (player.alive) placeChase(dt);
+      else { if (camera.parent !== scene) scene.add(camera); camera.lookAt(player.root.position); }
+    }
+    sendState(now);
+    updateHud();
+  } else {
+    // Hangar turntable
+    const a = t * 0.25, L = hangarJet ? hangarJet.info.len : 19;
+    camera.position.set(Math.sin(a) * L * 1.15, L * 0.38, Math.cos(a) * L * 1.15); camera.up.set(0, 1, 0); camera.lookAt(0, -0.5, 0);
+    camera.fov = 46; camera.updateProjectionMatrix();
+  }
+  for (const b of [player.inst, ...(net.practice ? practice.bots.map(b => b.inst) : [...others.values()].map(o => o.inst))]) if (b) for (const f of b.flames) f.scale.set(f.userData.sx, 0.85 + 0.15 * Math.sin(t * 30 + f.id), 1);
+  updateBullets(dt); updateParticles(dt);
+  renderer.render(scene, camera);
+});
+showHangarJet(myJet); renderJetInfo(); connect();
+}
+</script>
+</body>
+</html>
