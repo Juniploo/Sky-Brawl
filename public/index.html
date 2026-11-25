@@ -150,7 +150,7 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
     </div>
     <div class="bottom panel hint">
       <b>Controls:</b> <b>Mouse</b> steers: put the pointer where you want to go and the jet flies there · left click or <kbd>Space</kbd> guns · hold right mouse to look around ·
-      <kbd>R</kbd>/<kbd>F</kbd> throttle · <kbd>W</kbd>/<kbd>S</kbd>/<kbd>A</kbd>/<kbd>D</kbd>/<kbd>Q</kbd>/<kbd>E</kbd> fly by hand · · <kbd>X</kbd> missile (aim at an enemy until the box turns red) · <kbd>Z</kbd> flares · <kbd>T</kbd> cockpit/chase view ·
+      <kbd>R</kbd>/<kbd>F</kbd> throttle · <kbd>W</kbd>/<kbd>S</kbd>/<kbd>A</kbd>/<kbd>D</kbd>/<kbd>Q</kbd>/<kbd>E</kbd> fly by hand (move the mouse to switch back) · · <kbd>X</kbd> missile (aim at an enemy until the box turns red) · <kbd>Z</kbd> flares · <kbd>T</kbd> cockpit/chase view ·
       right-drag to look · <kbd>G</kbd> gear · <kbd>Tab</kbd> scores · <kbd>Enter</kbd> chat · <kbd>Esc</kbd> menu · <kbd>M</kbd> sound
     </div>
   </div>
@@ -434,6 +434,34 @@ function fireBullet(pos, vel, owner, hits) {
   tNext = (tNext + 1) % TMAX;
 }
 const seg = new THREE.Vector3(), rel = new THREE.Vector3();
+// Hitboxes: fuselage, wings and tail as boxes in the jet's own frame (x = span, y = up, z = length), with a small margin
+const boxCache = {};
+function jetBoxes(info) {
+  if (boxCache[info.id]) return boxCache[info.id];
+  const L = info.len, S = info.span * (info.sweep ? 0.85 : 1), m = 0.7;
+  return boxCache[info.id] = [
+    [-1.4 - m, -1.2 - m, -L / 2 - m, 1.4 + m, 1.6 + m, L / 2 + m],               // fuselage
+    [-S / 2 - m, -0.7 - m, -L * 0.28 - m, S / 2 + m, 0.9 + m, L * 0.12 + m],    // wings
+    [-S * 0.33 - m, -0.6 - m, -L / 2 - m, S * 0.33 + m, 3.2 + m, -L * 0.22 + m], // tail planes and fins
+  ];
+}
+const lp0 = new THREE.Vector3(), lp1 = new THREE.Vector3(), invQ = new THREE.Quaternion();
+function hitsJet(o, a, b) {
+  const r = o.root; invQ.copy(r.quaternion).invert();
+  lp0.subVectors(a, r.position).applyQuaternion(invQ); lp1.subVectors(b, r.position).applyQuaternion(invQ);
+  const d = [lp1.x - lp0.x, lp1.y - lp0.y, lp1.z - lp0.z], p = [lp0.x, lp0.y, lp0.z];
+  box: for (const bx of jetBoxes(o.info)) {
+    let t0 = 0, t1 = 1;
+    for (let i = 0; i < 3; i++) {
+      const lo = bx[i], hi = bx[i + 3];
+      if (Math.abs(d[i]) < 1e-9) { if (p[i] < lo || p[i] > hi) continue box; continue; }
+      let ta = (lo - p[i]) / d[i], tb = (hi - p[i]) / d[i]; if (ta > tb) [ta, tb] = [tb, ta];
+      t0 = Math.max(t0, ta); t1 = Math.min(t1, tb); if (t0 > t1) continue box;
+    }
+    return true;
+  }
+  return false;
+}
 function bulletTargets() {
   if (net.practice) return practice.bots.filter(b => b.alive);
   const out = []; for (const o of others.values()) if (o.alive && o.inst && o.inst.root.visible && isEnemy(o)) { o.root = o.inst.root; out.push(o); }
@@ -447,10 +475,8 @@ function updateBullets(dt) {
     if (b.life > 1.8 || b.pos.y < groundAt(b.pos.x, b.pos.z)) { b.on = false; tmpM.makeScale(0, 0, 0); tMesh.setMatrixAt(i, tmpM); continue; }
     if (b.hits) {                                     // my bullets check enemies (segment vs sphere)
       for (const o of bulletTargets()) {
-        const c = o.root.position, r = o.info.len * 0.5;
-        seg.subVectors(b.pos, b.prev); const L = seg.length(); seg.divideScalar(L || 1);
-        rel.subVectors(c, b.prev); const t = THREE.MathUtils.clamp(rel.dot(seg), 0, L);
-        if (rel.addScaledVector(seg, -t).lengthSq() < r * r) {
+        if (o.root.position.distanceToSquared(b.pos) > (o.info.len + 40) ** 2) continue;   // quick reject
+        if (hitsJet(o, b.prev, b.pos)) {
           b.on = false; hitEnemy(o, 'gun');
           for (let k = 0; k < 4; k++) puff(b.pos, new THREE.Vector3((Math.random() - .5) * 30, Math.random() * 20, (Math.random() - .5) * 30), 0.3, 1.2, 0.2, 0xffee88, 0xff6020);
           break;
@@ -809,18 +835,20 @@ function fly(dt) {
   const auth = THREE.MathUtils.clamp((st.v - 45) / 140, 0.2, 1);
   const bank = Math.atan2(-right.y, jup.y);
   let pIn = k('up') - k('down'), rIn = k('right') - k('left'), yIn = k('yl') - k('yr'), autoLevel = !rIn;
-  if (useMouse()) {
+  const handFlying = k('up') || k('down') || k('left') || k('right') || k('yl') || k('yr');
+  if (handFlying && pointerXY) pointerXY = null;          // WASD/QE in charge; move the mouse to take it back
+  if (useMouse() && !handFlying && pointerXY) {
     // Where is the aim point, seen from the jet? (+x = left, +y = up, +z = ahead)
     const L = v3.copy(aimDir).applyQuaternion(q1.copy(r.quaternion).invert());
     const off = Math.acos(THREE.MathUtils.clamp(L.z, -1, 1));
     const cl = x => THREE.MathUtils.clamp(x, -1, 1);
     const g = sens;
-    if (!(k('up') || k('down'))) pIn = cl(-Math.atan2(L.y, Math.max(L.z, 0.05)) * 4.8 * g);
-    if (!(k('left') || k('right'))) rIn = off < 0.12 ? cl(-bank * 1.4 - L.x * 7.5 * g) : cl(Math.atan2(-L.x, L.y) * 2.0 * g);
-    if (!(k('yl') || k('yr'))) yIn = cl(L.x * 7 * g);
+    pIn = cl(-Math.atan2(L.y, Math.max(L.z, 0.05)) * 3.2 * g);
+    rIn = off < 0.12 ? cl(-bank * 1.2 - L.x * 5 * g) : cl(Math.atan2(-L.x, L.y) * 1.5 * g);
+    yIn = cl(L.x * 4 * g);
     autoLevel = false;
   }
-  const resp = useMouse() ? 7.5 : 4.5;            // mouse steering reacts faster
+  const resp = useMouse() && !handFlying && pointerXY ? 6 : 4.5;
   st.p = ease(st.p, pIn * H.pitch * auth, resp, dt);
   st.r = ease(st.r, autoLevel ? (Math.abs(bank) < 1.0 ? -bank * 0.4 : 0) : rIn * H.roll * auth, resp, dt);
   st.y = ease(st.y, yIn * 0.3 * auth, resp * 0.7, dt);
@@ -913,7 +941,7 @@ function updateHud() {
   // Aim circle (where you point) and nose cross (where the guns fire)
   if (player.alive && player.root) {
     const n = toScreen(tv.set(0, 0, 1).applyQuaternion(player.root.quaternion).multiplyScalar(1000).add(player.root.position));
-    $('aim').style.display = useMouse() && pointerXY ? 'block' : 'none';
+    $('aim').style.display = useMouse() && pointerXY ? 'block' : 'none'; renderer.domElement.style.cursor = 'none';
     if (pointerXY) { $('aim').style.left = pointerXY.x + 'px'; $('aim').style.top = pointerXY.y + 'px'; }
     $('nose').style.display = n.on ? 'block' : 'none'; $('nose').style.left = n.x + 'px'; $('nose').style.top = n.y + 'px';
   } else { $('aim').style.display = 'none'; $('nose').style.display = 'none'; }
@@ -990,7 +1018,9 @@ const useMouse = () => mouseAim && hasMouse;
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 function aimFromPointer() {                           // the jet flies toward whatever is under the mouse pointer
   if (!pointerXY || freeLook) { aimDir.set(0, 0, 1).applyQuaternion(player.root.quaternion); return; }
-  ndc.set(pointerXY.x / innerWidth * 2 - 1, -(pointerXY.y / innerHeight) * 2 + 1);
+  // Soft response: small dead zone in the middle, gentle near the centre, strong toward the edges
+  const soft = v => { const a = Math.max(0, Math.abs(v) - 0.04) / 0.96; return Math.sign(v) * Math.pow(a, 1.6) * 0.75; };
+  ndc.set(soft(pointerXY.x / innerWidth * 2 - 1), soft(-(pointerXY.y / innerHeight) * 2 + 1));
   ray.setFromCamera(ndc, camera); aimDir.copy(ray.ray.direction);
 }
 renderer.domElement.addEventListener('pointerdown', e => {
