@@ -67,7 +67,10 @@ input{width:100%}
 .mk i{display:block;margin:0 auto 2px;width:12px;height:12px;border:2px solid currentColor;transform:rotate(45deg)}
 .lockbox{position:absolute;width:56px;height:56px;margin:-28px 0 0 -28px;border:2px solid #ffd34a;display:none}
 .lockbox.locked{border-color:var(--red);border-width:3px}
-.pip{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border:2px solid #d9ffe0;border-radius:50%;display:none}
+.pip{position:absolute;width:24px;height:24px;margin:-12px 0 0 -12px;border:2px solid #ff6a5a;border-radius:50%;box-shadow:0 0 3px #000a}
+.pip::after{content:"";position:absolute;left:50%;top:50%;width:4px;height:4px;margin:-2px;border-radius:50%;background:#ff6a5a}
+.pip.on{border-color:#5fe08a;border-width:3px;transform:scale(1.25)}.pip.on::after{background:#5fe08a}
+.pipline{position:absolute;height:1px;background:#ff6a5a88;transform-origin:0 0;pointer-events:none}
 .warn{position:absolute;left:50%;top:24%;transform:translateX(-50%);font:700 30px "Barlow Condensed",sans-serif;color:var(--red);text-shadow:0 2px 6px #000;display:none}
 .feed div{background:#0007;padding:2px 10px;border-radius:6px}
 .flash{position:fixed;inset:0;background:radial-gradient(transparent 50%,rgba(255,0,0,.45));opacity:0;transition:opacity .3s;pointer-events:none}
@@ -121,7 +124,7 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
         <h2>Match settings</h2>
         <div style="display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;align-items:center">
           <label for="sMode">Mode</label><select id="sMode"><option value="tdm">Team deathmatch (Blue vs Red)</option><option value="ffa">Free for all</option></select>
-          <label for="sMap">Map</label><select id="sMap"><option value="islands">Island chain</option><option value="canyon">Red canyon</option><option value="alps">Alpine peaks</option></select>
+          <label for="sMap">Map</label><select id="sMap"><option value="islands">Island chain</option><option value="canyon">Red canyon</option><option value="alps">Alpine peaks</option><option value="volcano">Volcano isles</option><option value="arctic">Arctic fjords</option><option value="sky">Sky islands</option></select>
           <label for="sScore">Score limit</label><select id="sScore"><option>5</option><option selected>10</option><option>15</option><option>20</option><option>30</option></select>
           <label for="sTime">Time limit</label><select id="sTime"><option value="5">5 min</option><option value="10" selected>10 min</option><option value="15">15 min</option><option value="20">20 min</option></select>
         </div>
@@ -169,7 +172,7 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
   <div class="reticle" id="nose"></div>
   <div class="clickhint" id="clickHint">Click the game to capture the mouse (Esc releases it)</div>
   <div class="lockbox" id="lockbox"></div>
-  <div class="pip" id="pip"></div>
+  <div id="pips"></div>
   <div class="warn" id="warn"></div>
   <div id="markers"></div>
   <div class="pad" id="pad">
@@ -272,6 +275,73 @@ const MAPS = {
     color: (h, slope, x, z) => h > 2350 - slope * 300 ? C(0xf2f5f7) : slope > 0.85 || h > 1700 ? C(0x7d7b78) : h < 285 ? C(0xbfae86) : (noise2(x / 300, z / 300) > 0.1 ? C(0x2f5a2e) : C(0x46743a)),
   },
 };
+// Hash for deterministic per-cell features (volcanoes, floating islands)
+const hash2 = (i, j, k = 0) => { let h = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return h - Math.floor(h); };
+// Volcano Isles: a volcano in most 7 km cells, crater at the top
+const VCELL = 7000;
+function volcanoNear(x, z) {
+  const ci = Math.floor(x / VCELL), cj = Math.floor(z / VCELL); let best = null;
+  for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+    const i = ci + di, j = cj + dj; if (hash2(i, j) > 0.75) continue;
+    const cx = (i + 0.2 + hash2(i, j, 1) * 0.6) * VCELL, cz = (j + 0.2 + hash2(i, j, 2) * 0.6) * VCELL;
+    const R = 2200 + hash2(i, j, 3) * 1300, H = 1500 + hash2(i, j, 4) * 1000, d = Math.hypot(x - cx, z - cz) / R;
+    if (!best || d < best.d) best = { d, R, H, cx, cz };
+  }
+  return best;
+}
+function volcanoHeight(v) {
+  if (!v || v.d >= 1) return -1e9;
+  const rim = v.H * Math.pow(1 - 0.12, 1.5);
+  return v.d < 0.12 ? rim - (0.12 - v.d) / 0.12 * 260 : v.H * Math.pow(1 - v.d, 1.5);
+}
+// Sky Islands: floating rock islands above a sea of clouds, one in most 3.5 km cells
+const SCELL = 3500;
+function skyIsland(i, j) {
+  if (hash2(i, j, 9) > 0.78) return null;
+  return { x: (i + 0.15 + hash2(i, j, 5) * 0.7) * SCELL, z: (j + 0.15 + hash2(i, j, 6) * 0.7) * SCELL,
+           top: 700 + hash2(i, j, 7) * 1900, r: 280 + hash2(i, j, 8) * 650, seed: hash2(i, j, 10) };
+}
+function skyCollide(p) {
+  const ci = Math.floor(p.x / SCELL), cj = Math.floor(p.z / SCELL);
+  for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+    const s = skyIsland(ci + di, cj + dj); if (!s) continue;
+    const d = Math.hypot(p.x - s.x, p.z - s.z) / s.r; if (d > 1.02) continue;
+    if (p.y < s.top + 45 && p.y > s.top - s.r * 1.6 * (1 - d)) return true;
+  }
+  return false;
+}
+Object.assign(MAPS, {
+  volcano: {
+    name: 'Volcano isles', sky: 0xe39a6a, water: 0, waterColor: 0x1b3946, clouds: [2600, 4200],
+    height: (x, z) => {
+      const b = fbm(x / 8000, z / 8000, 5) * 0.5 + 0.5;
+      let h = (b - 0.56) * 2400; if (h > 0) h += ridged(x / 2200, z / 2200, 4) * 300 * sstep(0, 250, h);
+      return Math.max(h, volcanoHeight(volcanoNear(x, z)), -160);
+    },
+    color: (h, slope, x, z) => {
+      const v = volcanoNear(x, z);
+      if (v && v.d < 0.12 && h > v.H * 0.6) return C(0xff6a1a);                                   // lava lake in the crater
+      if (v && v.d < 0.75 && h > 40 && Math.abs(noise2(x / 500, z / 500)) < 0.06) return C(0xd8461c);  // lava streams down the slopes
+      if (h < 14) return C(0x24211f);
+      if (h > 900 || slope > 0.8) return noise2(x / 300, z / 300) > 0 ? C(0x3a3532) : C(0x2b2826);
+      return noise2(x / 400, z / 400) > 0.25 ? C(0x3f5a2c) : C(0x4a4440);
+    },
+  },
+  arctic: {
+    name: 'Arctic fjords', sky: 0xcfe1ee, water: 0, waterColor: 0x1d4a6b, clouds: [1800, 3600],
+    height: (x, z) => {
+      const m = Math.pow(ridged(x / 6000, z / 6000, 6), 1.5) * 2700 + 150;
+      const carve = 1 - sstep(0.05, 0.17, Math.abs(fbm(x / 9000, z / 9000, 3)));
+      return m * (1 - carve) - 200 * carve;
+    },
+    color: (h, slope, x, z) => h < 3 ? C(0x2c3e4c) : slope > 0.95 ? (noise2(x / 250, z / 250) > 0 ? C(0x5b6670) : C(0x4a545e)) : h > 260 - slope * 120 ? C(0xf2f6fa) : C(0x7b8c6c),
+  },
+  sky: {
+    name: 'Sky islands', sky: 0xf4c49a, water: -1e4, waterColor: 0, clouds: [2800, 4300], collide: skyCollide,
+    height: (x, z) => -25 + fbm(x / 1600, z / 1600, 3) * 40,
+    color: (h, slope, x, z) => h > -15 ? C(0xfbf6f2) : C(0xe6dde6),
+  },
+});
 let map = MAPS.islands;
 
 const world = new THREE.Group(), TILE = 2000, RAD = 7, tiles = new Map(), clouds = [], CWR = 14000;
@@ -308,6 +378,64 @@ const carrier = new THREE.Group();
 }
 
 function groundAt(x, z) { return Math.max(map.height(x, z), map.water); }
+// Icebergs for the arctic map (drift with the wrap like clouds, only shown on open water)
+const bergs = [], BWR = 12000;
+{
+  const ice = new THREE.MeshStandardMaterial({ color: 0xeaf4fb, flatShading: true, roughness: 0.6 });
+  let seed = 3; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  for (let i = 0; i < 70; i++) {
+    const m = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), ice), s = 25 + rnd() * 90;
+    m.scale.set(s * (1 + rnd()), s * (0.5 + rnd() * 0.8), s * (1 + rnd())); m.rotation.y = rnd() * 6;
+    m.userData.base = new THREE.Vector3((rnd() * 2 - 1) * BWR, 0, (rnd() * 2 - 1) * BWR);
+    m.visible = false; world.add(m); bergs.push(m);
+  }
+}
+// Floating islands for the sky map, built per cell around the player
+const islandGroup = new THREE.Group(), islandMeshes = new Map(); world.add(islandGroup);
+const grassMat = new THREE.MeshStandardMaterial({ color: 0x6aa84f, flatShading: true }), rockMat = new THREE.MeshStandardMaterial({ color: 0x8a6a52, flatShading: true });
+const treeMat = new THREE.MeshStandardMaterial({ color: 0x2f6b3a, flatShading: true }), fallMat = new THREE.MeshBasicMaterial({ color: 0xdff4ff, transparent: true, opacity: 0.8 });
+function buildIsland(s) {
+  const g = new THREE.Group();
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(s.r, s.r * 0.96, 50, 10), grassMat); top.position.y = -25;
+  const under = new THREE.ConeGeometry(s.r * 0.96, s.r * 1.6, 10, 3, true), pos = under.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const y = pos.getY(i); if (y < s.r * 0.79) { pos.setX(i, pos.getX(i) * (0.85 + hash2(i, s.seed * 99) * 0.3)); pos.setZ(i, pos.getZ(i) * (0.85 + hash2(s.seed * 77, i) * 0.3)); } }
+  under.computeVertexNormals();
+  const rock = new THREE.Mesh(under, rockMat); rock.rotation.x = Math.PI; rock.position.y = -50 - s.r * 0.8;
+  g.add(top, rock);
+  for (let k = 0; k < 6 + Math.floor(s.seed * 10); k++) {                  // trees
+    const a = hash2(k, s.seed * 50) * Math.PI * 2, d = Math.sqrt(hash2(s.seed * 30, k)) * s.r * 0.8, h = 30 + hash2(k, k, s.seed) * 40;
+    const t = new THREE.Mesh(new THREE.ConeGeometry(h * 0.35, h, 6), treeMat); t.position.set(Math.cos(a) * d, h / 2, Math.sin(a) * d); g.add(t);
+  }
+  if (s.seed > 0.4) {                                                       // waterfall off the edge
+    const a = s.seed * 20, fall = new THREE.Mesh(new THREE.BoxGeometry(18, s.r * 2.2, 6), fallMat);
+    fall.position.set(Math.cos(a) * s.r, -s.r * 1.1, Math.sin(a) * s.r); fall.rotation.y = -a; g.add(fall);
+  }
+  g.position.set(s.x, s.top, s.z);
+  return g;
+}
+function updateExtras(cx, cz, dt) {
+  if (map === MAPS.arctic) for (const m of bergs) {
+    const b = m.userData.base;
+    const x = cx + THREE.MathUtils.euclideanModulo(b.x - cx + BWR, 2 * BWR) - BWR, z = cz + THREE.MathUtils.euclideanModulo(b.z - cz + BWR, 2 * BWR) - BWR;
+    if (Math.abs(x - m.position.x) > 1 || Math.abs(z - m.position.z) > 1) { m.position.set(x, 0, z); m.visible = map.height(x, z) < -40; }
+  }
+  if (map === MAPS.sky) {
+    const ci = Math.floor(cx / SCELL), cj = Math.floor(cz / SCELL), keep = new Set();
+    for (let di = -4; di <= 4; di++) for (let dj = -4; dj <= 4; dj++) {
+      const key = (ci + di) + ',' + (cj + dj), s = skyIsland(ci + di, cj + dj); if (!s) continue;
+      keep.add(key); if (!islandMeshes.has(key)) { const g = buildIsland(s); islandGroup.add(g); islandMeshes.set(key, g); }
+    }
+    for (const [key, g] of islandMeshes) if (!keep.has(key)) { islandGroup.remove(g); islandMeshes.delete(key); }
+  }
+  if (map === MAPS.volcano && typeof puff === 'function') {                  // smoke columns from the craters
+    const ci = Math.floor(cx / VCELL), cj = Math.floor(cz / VCELL);
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+      const i = ci + di, j = cj + dj; if (hash2(i, j) > 0.75 || Math.random() > dt * 7) continue;
+      const x = (i + 0.2 + hash2(i, j, 1) * 0.6) * VCELL, z = (j + 0.2 + hash2(i, j, 2) * 0.6) * VCELL, H = 1500 + hash2(i, j, 4) * 1000;
+      puff(new THREE.Vector3(x + (Math.random() - .5) * 150, H * 0.83, z + (Math.random() - .5) * 150), new THREE.Vector3(14, 35 + Math.random() * 20, 6), 14, 40, 220, 0x3a3533, 0x9b928c);
+    }
+  }
+}
 function buildTile(tx, tz, seg) {
   const n = seg + 1, cell = TILE / seg, cnt = n * n + 4 * n;
   const pos = new Float32Array(cnt * 3), col = new Float32Array(cnt * 3), hs = new Float32Array(n * n);
@@ -361,6 +489,9 @@ function setMap(id) {
   tiles.clear();
   water.position.y = map.water; water.material.color.set(map.waterColor);
   carrier.visible = id === 'islands';
+  water.visible = map.water > -1000;
+  for (const m of bergs) { m.visible = false; m.position.set(1e9, 0, 1e9); }
+  for (const g of islandMeshes.values()) islandGroup.remove(g); islandMeshes.clear(); islandGroup.visible = id === 'sky';
   for (const c of clouds) c.userData.y = map.clouds[0] + c.userData.base.y * (map.clouds[1] - map.clouds[0]);
   const sky = new THREE.Color(map.sky); scene.background = sky; scene.fog = new THREE.Fog(sky, 3000, 13500);
 }
@@ -642,6 +773,8 @@ async function spawnMe(sp) {
   if (!player.inst) { player.inst = await makeJet(myJet, true); player.root = player.inst.root; scene.add(player.root); }
   const top = Math.max(groundAt(sp.x, sp.z), ...[-1, 1].map(k => groundAt(sp.x + Math.sin(sp.heading) * 1500 * k, sp.z + Math.cos(sp.heading) * 1500 * k)));
   player.root.position.set(sp.x, top + 650, sp.z);
+  if (map.collide) for (let i = 0; i < 20 && map.collide(player.root.position); i++) player.root.position.y += 250;
+  updateExtras(sp.x, sp.z, 0);
   player.root.quaternion.setFromAxisAngle(UP, sp.heading);
   aimDir.set(0, 0, 1).applyQuaternion(player.root.quaternion); aimActive = false;
   player.root.visible = true; player.alive = true; player.hp = 100; player.ammo = 600; player.msl = 4; player.flr = 6; mslRegen = 0;
@@ -857,7 +990,7 @@ function fly(dt) {
   player.vel.copy(fwd).multiplyScalar(st.v);
   r.position.addScaledVector(fwd, st.v * dt);
   const agl = r.position.y - groundAt(r.position.x, r.position.z);
-  if (agl < 2.5) { crash(); return; }
+  if (agl < 2.5 || (map.collide && map.collide(r.position))) { crash(); return; }
   // Guns
   gunT -= dt;
   if ((k('fire') || mouseFire) && player.ammo > 0 && gunT <= 0) {
@@ -897,8 +1030,8 @@ function crash() {
 }
 function allTargets() {
   const out = [];
-  if (net.practice) { for (const b of practice.bots) if (b.alive) out.push({ id: b.id, pos: b.root.position, vel: b.vel }); }
-  else for (const o of others.values()) if (o.alive && o.inst && o.inst.root.visible && isEnemy(o)) out.push({ id: o.id, pos: o.inst.root.position, vel: o.vel });
+  if (net.practice) { for (const b of practice.bots) if (b.alive) out.push({ id: b.id, pos: b.root.position, vel: b.vel, len: b.info.len }); }
+  else for (const o of others.values()) if (o.alive && o.inst && o.inst.root.visible && isEnemy(o)) out.push({ id: o.id, pos: o.inst.root.position, vel: o.vel, len: o.info.len });
   return out;
 }
 function incomingMissile() {
@@ -950,14 +1083,27 @@ function updateHud() {
   // Lock box
   const lb = $('lockbox'), lt = lock.id != null && allTargets().find(t => t.id === lock.id);
   if (lt && player.alive) { const s = toScreen(lt.pos); lb.style.display = s.on ? 'block' : 'none'; lb.style.left = s.x + 'px'; lb.style.top = s.y + 'px'; lb.classList.toggle('locked', lock.locked); } else lb.style.display = 'none';
-  // Gun lead pip on the nearest enemy in front
-  const pip = $('pip'); pip.style.display = 'none';
+  // Lead circles: where to shoot so your bullets meet each enemy (bullets fly 1000 m/s and keep your own speed)
+  const pips = $('pips'); let used = 0;
   if (player.alive && player.root) {
-    fwd.set(0, 0, 1).applyQuaternion(player.root.quaternion);
-    let best = null, bd = 1800;
-    for (const t of allTargets()) { const d = t.pos.distanceTo(player.root.position); if (d < bd && fwd.angleTo(tv.subVectors(t.pos, player.root.position)) < 0.6) { bd = d; best = t; } }
-    if (best) { lead.copy(best.pos).addScaledVector(best.vel, bd / 1000); const s = toScreen(lead); if (s.on) { pip.style.display = 'block'; pip.style.left = s.x + 'px'; pip.style.top = s.y + 'px'; } }
+    const op = player.root.position; fwd.set(0, 0, 1).applyQuaternion(player.root.quaternion);
+    const near = allTargets().map(t => ({ t, d: t.pos.distanceTo(op) })).filter(x => x.d < 2500).sort((a, b) => a.d - b.d).slice(0, 4);
+    for (const { t, d } of near) {
+      rel.subVectors(t.pos, op); seg.subVectors(t.vel, player.vel);       // relative position and velocity
+      let tt = d / 1000; for (let k = 0; k < 3; k++) tt = lead.copy(rel).addScaledVector(seg, tt).length() / 1000;
+      lead.copy(rel).addScaledVector(seg, tt); lead.y += 2 * tt * tt;       // bullet drop
+      const onTarget = fwd.angleTo(lead) < Math.atan((t.len || 14) * 0.35 / Math.max(d, 50));
+      lead.add(op);
+      const sP = toScreen(lead), sT = toScreen(t.pos); if (!sP.on || sT.behind) continue;
+      let el = pips.children[used]; if (!el) { el = document.createElement('div'); el.innerHTML = '<div class="pipline"></div><div class="pip"></div>'; pips.append(el); }
+      used++; el.style.display = 'block';
+      const pip = el.lastChild, line = el.firstChild;
+      pip.style.left = sP.x + 'px'; pip.style.top = sP.y + 'px'; pip.classList.toggle('on', onTarget);
+      const dx = sP.x - sT.x, dy = sP.y - sT.y;                            // thin line from the enemy to its lead circle
+      line.style.left = sT.x + 'px'; line.style.top = sT.y + 'px'; line.style.width = Math.hypot(dx, dy) + 'px'; line.style.transform = `rotate(${Math.atan2(dy, dx)}rad)`;
+    }
   }
+  for (let i = used; i < pips.children.length; i++) pips.children[i].style.display = 'none';
   $('hHp').style.width = Math.max(0, player.hp) + '%'; $('hHp').style.background = player.hp > 50 ? 'var(--ok)' : player.hp > 25 ? '#ffc840' : 'var(--red)';
   $('hGun').textContent = 'GUN ' + player.ammo; $('hMsl').textContent = 'MSL ' + player.msl + (lock.locked ? ' LOCK' : ''); $('hFlr').textContent = 'FLR ' + player.flr;
   $('hJet').textContent = player.inst ? player.inst.info.short : '';
@@ -1082,7 +1228,7 @@ const practice = (() => {
   };
   P.start = async () => {
     net.practice = true; P.running = true; P.kills = 0; P.deaths = 0; net.id = net.id || 'me';
-    party = null; matchCfg = { mode: 'ffa', map: ['islands', 'canyon', 'alps'][Math.floor(Math.random() * 3)], scoreLimit: 15, minutes: 10 };
+    party = null; matchCfg = { mode: 'ffa', map: ['islands', 'canyon', 'alps', 'volcano', 'arctic', 'sky'][Math.floor(Math.random() * 6)], scoreLimit: 15, minutes: 10 };
     endsAt = Date.now() + 10 * 60000;
     inMatch = true; hangar.visible = false; show('hud'); setMap(matchCfg.map); world.visible = true; $('feed').innerHTML = '';
     await spawnMe({ x: 0, z: 0, heading: 0 });
@@ -1093,6 +1239,9 @@ const practice = (() => {
       setGear(inst, false, true); scene.add(inst.root);
       const b = { id: nextBotId++, name: NAMES[i], jet, inst, root: inst.root, vel: new THREE.Vector3(), kills: 0, deaths: 0, gunT: 0, info: JET[jet] };
       spawnBot(b); P.bots.push(b);
+      if (i === 0 && location.hash === '#bot-ahead') {        // testing aid: first bot starts 900 m ahead, crossing
+        b.root.position.copy(player.root.position).add(new THREE.Vector3(0, 30, 900)); b.root.quaternion.setFromAxisAngle(UP, Math.PI / 2);
+      }
     }
     feedLine('Practice: shoot down the bots. First to 15 kills.');
   };
@@ -1145,7 +1294,7 @@ const practice = (() => {
       mtx.makeBasis(lft, up2, f3); q1.setFromRotationMatrix(mtx); r.quaternion.slerp(q1, 1 - Math.exp(-dt * 4));
       b.speed = THREE.MathUtils.clamp(b.speed + (-9.81 * f3.y * 0.8 + (240 - b.speed) * 0.2) * dt, 140, 330);
       b.vel.copy(f3).multiplyScalar(b.speed); r.position.addScaledVector(b.vel, dt);
-      if (r.position.y < groundAt(r.position.x, r.position.z) + 3) { P.hit(b, 'missile'); P.hit(b, 'missile'); continue; }
+      if (r.position.y < groundAt(r.position.x, r.position.z) + 3 || (map.collide && map.collide(r.position))) { P.hit(b, 'missile'); P.hit(b, 'missile'); continue; }
       for (const f of b.inst.flames) f.visible = b.speed > 290;
       if (b.hp < 50 && Math.random() < dt * 30) puff(r.position, ZERO, 2.5, 1.5, 6, 0x555555, 0xaab4bc);
       if (!tgt) continue;
@@ -1197,7 +1346,7 @@ renderer.setAnimationLoop(() => {
     updateMissiles(dt);
     for (let i = mslUsed; i < mslPool.length; i++) mslPool[i].visible = false;
     const c = player.root ? player.root.position : ZERO;
-    updateTiles(c.x, c.z, 5);
+    updateTiles(c.x, c.z, 5); updateExtras(c.x, c.z, dt);
     water.position.x = Math.round(c.x / 1000) * 1000; water.position.z = Math.round(c.z / 1000) * 1000;
     for (const cl of clouds) {
       const b = cl.userData.base;

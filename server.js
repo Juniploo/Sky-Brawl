@@ -23,7 +23,7 @@ const server = http.createServer((req, res) => {
 
 // ---------------- Game state
 const JETS = ['f14', 'f15', 'f16', 'f22', 'f35'];
-const MAPS = ['islands', 'canyon', 'alps'];
+const MAPS = ['islands', 'canyon', 'alps', 'volcano', 'arctic', 'sky'];
 const players = new Map();   // id -> player
 const parties = new Map();   // code -> party
 let nextId = 1;
