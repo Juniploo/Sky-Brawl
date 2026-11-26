@@ -85,6 +85,18 @@ input{width:100%}
 table{border-collapse:collapse;width:100%;font-size:15px}
 td,th{padding:6px 10px;text-align:left;border-bottom:1px solid var(--line)}
 td.n,th.n{text-align:right}
+.xp{font:700 20px "Barlow Condensed",sans-serif;color:#ffd34a;white-space:nowrap}
+.tgrid{display:grid;grid-template-columns:110px repeat(5,minmax(0,1fr));gap:10px;align-items:start}
+.tgrid .th{font:700 18px "Barlow Condensed",sans-serif;color:var(--muted);text-align:center}
+.tgrid .nat{font:700 22px "Barlow Condensed",sans-serif;align-self:center}
+.tcell{display:grid;gap:8px}
+.tcard{text-align:left;padding:10px 12px;line-height:1.25;min-height:76px;border-radius:10px}
+.tcard b{display:block;font:700 19px "Barlow Condensed",sans-serif}.tcard small{display:block;font-size:12px;color:var(--muted)}
+.tcard .st{display:block;margin-top:4px;font-size:13px;font-weight:600}
+.tcard.own{border-color:#5fe08a66}.tcard.own .st{color:var(--ok)}
+.tcard.can{border-color:#ffd34a}.tcard.can .st{color:#ffd34a}
+.tcard.lock{opacity:.55}.tcard.sel{box-shadow:inset 0 0 0 2px var(--hot);border-color:var(--hot)}
+@media(max-width:900px){.tgrid{grid-template-columns:70px repeat(5,minmax(120px,1fr));overflow-x:auto}}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);padding:10px 16px;border-radius:10px;display:none;z-index:9}
 .hint{font-size:13px;color:var(--muted)}
 kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4px;padding:0 5px}
@@ -99,11 +111,23 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
       <p class="tag">Low-poly jet dogfights in your browser. Pick a fighter, make a party, and fight your friends over islands, canyons and mountains.</p>
     </div>
     <div class="panel">
-      <label class="muted" for="name">Pilot name</label>
-      <input id="name" maxlength="16" placeholder="Your name" autocomplete="off">
-      <button class="main" id="bCreate">Create a party</button>
-      <div class="row" style="flex-wrap:nowrap"><input id="joinCode" maxlength="5" placeholder="Party code" style="text-transform:uppercase"><button id="bJoin">Join</button></div>
-      <button id="bPractice">Practice against bots</button>
+      <form id="authBox" style="display:grid;gap:10px" autocomplete="on">
+        <h2 style="margin:0">Log in to fly online</h2>
+        <label class="muted" for="name">Pilot name</label>
+        <input id="name" maxlength="16" placeholder="Your name" autocomplete="username">
+        <label class="muted" for="pass">Password</label>
+        <input id="pass" type="password" maxlength="64" placeholder="Password" autocomplete="current-password">
+        <div class="row" style="flex-wrap:nowrap"><button class="main" id="bLogin" type="submit" style="flex:1">Log in</button><button id="bRegister" type="button" style="flex:1">Create account</button></div>
+        <p class="muted" id="authMsg" style="margin:0">New here? Pick a name and password and press Create account.</p>
+      </form>
+      <div id="mainBox" style="display:none;gap:12px">
+        <div><div class="muted">Logged in as</div><div class="row" style="justify-content:space-between"><b id="meName" style="font:700 26px 'Barlow Condensed',sans-serif"></b><span class="xp" id="meXp"></span></div></div>
+        <button class="main" id="bCreate">Create a party</button>
+        <div class="row" style="flex-wrap:nowrap"><input id="joinCode" maxlength="5" placeholder="Party code" style="text-transform:uppercase"><button id="bJoin">Join</button></div>
+        <button id="bTree">Tech tree · unlock planes</button>
+        <button id="bLogout">Log out</button>
+      </div>
+      <button id="bPractice">Practice against bots (no XP)</button>
       <p class="muted" id="netStatus">Connecting to the server…</p>
     </div>
   </div>
@@ -136,7 +160,7 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
       <div class="panel">
         <h2 id="jetName">F-14 Tomcat</h2>
         <div class="muted" id="jetRole"></div>
-        <h3>Choose your jet</h3>
+        <h3>Choose your plane <button id="bTree2" style="min-height:32px;padding:0 10px;font-size:14px;margin-left:8px">Tech tree</button></h3>
         <div class="jets" id="jets"></div>
         <div id="teamRow">
           <h3>Team</h3>
@@ -182,6 +206,13 @@ kbd{font:600 12px Barlow,sans-serif;border:1px solid var(--line);border-radius:4
   </div>
 </div>
 <div class="flash" id="flash"></div>
+<div class="screen" id="tree" style="background:rgba(8,16,24,.94);z-index:4">
+  <div style="max-width:1240px;margin:0 auto">
+    <div class="row" style="justify-content:space-between;margin-bottom:14px"><h1 style="font-size:clamp(36px,5vw,56px)">Tech tree</h1><div class="row"><span class="xp big" id="treeXp"></span><button class="main" id="bTreeClose">Back</button></div></div>
+    <p class="muted" style="margin:0 0 14px">Earn XP in matches (60 for playing, 150 per kill, 200 for a win), then spend it to unlock the next planes. Each plane needs one of the planes to its left. Click a plane you own to fly it.</p>
+    <div class="tgrid" id="tgrid"></div>
+  </div>
+</div>
 
 <div class="center" id="dead"><div class="panel"><div class="big" id="deadTitle">Shot down</div><p id="deadText"></p><p class="muted" id="deadTimer"></p></div></div>
 <div class="center" id="board"><div class="panel" style="min-width:min(560px,92vw)"><h2 id="boardTitle">Scoreboard</h2><table><thead><tr><th>Pilot</th><th>Jet</th><th class="n">Kills</th><th class="n">Deaths</th></tr></thead><tbody id="boardBody"></tbody></table><div class="row" id="boardBtns" style="justify-content:center;margin-top:14px"></div></div></div>
@@ -195,7 +226,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 {
 const $ = id => document.getElementById(id);
-const JETS = [{"id": "f14", "name": "F-14 Tomcat", "short": "F-14", "role": "Navy fleet defender with swing wings", "crew": "2 crew", "len": 19.1, "span": 19.54, "height": 4.88, "ground": -1.94, "seats": [[0, 1.13, 3.88], [0, 1.03, 2.12]], "flames": [{"x": 1.48, "y": -0.24, "z": -9.15, "r": 0.4}, {"x": -1.48, "y": -0.24, "z": -9.15, "r": 0.4}], "sweep": true, "handling": {"thrust": 42, "vmax": 390, "roll": 2.4, "pitch": 1.05}, "note": "F-14 Tomcat: two-seat US Navy carrier fighter. Swing wings from 20\u00b0 to 68\u00b0 (they sweep by themselves as you speed up), raked square intakes, Phoenix, Sparrow and Sidewinder missiles, and a tandem cockpit with the big round tactical display in the back seat."}, {"id": "f15", "name": "F-15C Eagle", "short": "F-15C", "role": "Air superiority fighter", "crew": "1 pilot", "len": 19.43, "span": 13.05, "height": 5.63, "handling": {"thrust": 48, "vmax": 410, "roll": 2.8, "pitch": 1.15}, "note": "F-15C Eagle: single-seat air-superiority fighter. Big square intakes with the top lip forward, a tall bubble canopy for all-round view, twin vertical tails on booms, a speed brake on its back, four Sparrows and four Sidewinders. Classic round-gauge cockpit with a centre stick.", "ground": -1.88, "seats": [[0, 1.0599999999999998, 4.7]], "flames": [{"x": 0.68, "y": 0.05, "z": -8.9, "r": 0.44}, {"x": -0.68, "y": 0.05, "z": -8.9, "r": 0.44}], "sweep": false}, {"id": "f16", "name": "F-16C Fighting Falcon", "short": "F-16C", "role": "Lightweight multirole fighter", "crew": "1 pilot", "len": 15.06, "span": 9.96, "height": 4.88, "handling": {"thrust": 46, "vmax": 380, "roll": 3.6, "pitch": 1.3}, "note": "F-16C Fighting Falcon: light single-engine fighter. Tall one-piece bubble canopy with the pilot sitting high, a short nose with the pitot probe, a big intake under the cockpit, curved strakes that blend into the wings, a high spine running into the tall fin, a reclined seat with the side-stick on the right, Sidewinders on the wingtips and AMRAAMs under the wings. It rolls the fastest of the five.", "ground": -1.68, "seats": [[0, 1.0399999999999998, 3.78]], "flames": [{"x": 0, "y": 0.1, "z": -7.53, "r": 0.42}], "sweep": false}, {"id": "f22", "name": "F-22A Raptor", "short": "F-22A", "role": "Stealth air dominance fighter", "crew": "1 pilot", "len": 18.92, "span": 13.56, "height": 5.08, "handling": {"thrust": 52, "vmax": 410, "roll": 3.0, "pitch": 1.5}, "note": "F-22A Raptor: stealth air-superiority fighter. Diamond-shaped wings, sharp-edged fuselage, angled intakes, gold-tinted canopy, twin tails leaning outward and flat thrust-vectoring nozzles. Its missiles ride in internal bays (shown here on their launch rails). Thrust vectoring makes it pitch the fastest.", "ground": -1.87, "seats": [[0, 0.9099999999999999, 5.23]], "flames": [{"x": 0.78, "y": 0.05, "z": -9, "r": 0.42, "sx": 2.2}, {"x": -0.78, "y": 0.05, "z": -9, "r": 0.42, "sx": 2.2}], "sweep": false}, {"id": "f35", "name": "F-35A Lightning II", "short": "F-35A", "role": "Stealth multirole fighter", "crew": "1 pilot", "len": 15.67, "span": 10.7, "height": 4.38, "handling": {"thrust": 42, "vmax": 345, "roll": 2.8, "pitch": 1.25}, "note": "F-35A Lightning II: single-engine stealth fighter. Intakes with the bump in front instead of a gap, one wide touchscreen instead of gauges and no HUD (real pilots see flight data in their helmet), twin tails leaning outward and a sawtooth-edged nozzle.", "ground": -1.85, "seats": [[0, 0.94, 3.93]], "flames": [{"x": 0, "y": 0.05, "z": -7.85, "r": 0.5}], "sweep": false}];
+const JETS = [{"id": "p51", "name": "P-51D Mustang", "short": "P-51D", "nation": "usa", "tier": 1, "cost": 0, "req": [], "role": "Long-range WWII escort fighter", "crew": "1 pilot", "len": 9.83, "span": 11.28, "height": 4.08, "arms": {"ammo": 1400, "msl": 0, "flr": 0}, "sweep": false, "seats": [[0, 1.0231875, -0.4]], "flames": [], "ground": -1.6, "handling": {"thrust": 15, "vmax": 215, "roll": 2.5, "pitch": 1.15}, "prop": true}, {"id": "f86", "name": "F-86F Sabre", "short": "F-86F", "nation": "usa", "tier": 2, "cost": 800, "req": ["p51"], "role": "Korean War swept-wing jet", "crew": "1 pilot", "len": 11.4, "span": 11.3, "height": 4.5, "arms": {"ammo": 900, "msl": 0, "flr": 0}, "sweep": false, "seats": [[0, 1.0050624999999997, 1.9500000000000002]], "flames": [{"x": 0, "y": 0.05, "z": -5.75, "r": 0.324}], "ground": -1.85, "handling": {"thrust": 26, "vmax": 300, "roll": 3.0, "pitch": 1.2}}, {"id": "f4", "name": "F-4E Phantom II", "short": "F-4E", "nation": "usa", "tier": 3, "cost": 2400, "req": ["f86"], "role": "Twin-engine Cold War fighter", "crew": "2 crew", "len": 19.2, "span": 11.7, "height": 5.0, "arms": {"ammo": 640, "msl": 4, "flr": 4}, "sweep": false, "seats": [[0, 0.9803846153846154, 4.65], [0, 0.9303846153846154, 3.2500000000000004]], "flames": [{"x": 0.62, "y": -0.15, "z": -7.2, "r": 0.38}, {"x": -0.62, "y": -0.15, "z": -7.2, "r": 0.38}], "ground": -2.15, "handling": {"thrust": 40, "vmax": 380, "roll": 2.2, "pitch": 1.0}}, {"id": "f14", "name": "F-14 Tomcat", "short": "F-14", "nation": "usa", "tier": 4, "cost": 4500, "req": ["f4"], "role": "Navy fleet defender with swing wings", "crew": "2 crew", "len": 19.1, "span": 19.54, "height": 4.88, "arms": {"ammo": 600, "msl": 4, "flr": 6}, "sweep": true, "seats": [[0, 1.13, 3.88], [0, 1.03, 2.12]], "flames": [{"x": 1.48, "y": -0.24, "z": -9.15, "r": 0.4}, {"x": -1.48, "y": -0.24, "z": -9.15, "r": 0.4}], "ground": -1.94, "handling": {"thrust": 42, "vmax": 390, "roll": 2.4, "pitch": 1.05}}, {"id": "f15", "name": "F-15C Eagle", "short": "F-15C", "nation": "usa", "tier": 4, "cost": 5000, "req": ["f4"], "role": "Air superiority fighter", "crew": "1 pilot", "len": 19.43, "span": 13.05, "height": 5.63, "arms": {"ammo": 600, "msl": 4, "flr": 6}, "sweep": false, "seats": [[0, 1.0599999999999998, 4.7]], "flames": [{"x": 0.68, "y": 0.05, "z": -8.9, "r": 0.44}, {"x": -0.68, "y": 0.05, "z": -8.9, "r": 0.44}], "ground": -1.88, "handling": {"thrust": 48, "vmax": 410, "roll": 2.8, "pitch": 1.15}}, {"id": "f16", "name": "F-16C Fighting Falcon", "short": "F-16C", "nation": "usa", "tier": 4, "cost": 4500, "req": ["f4"], "role": "Lightweight multirole fighter", "crew": "1 pilot", "len": 15.06, "span": 9.96, "height": 4.88, "arms": {"ammo": 600, "msl": 4, "flr": 6}, "sweep": false, "seats": [[0, 1.0399999999999998, 3.78]], "flames": [{"x": 0, "y": 0.1, "z": -7.53, "r": 0.42}], "ground": -1.68, "handling": {"thrust": 46, "vmax": 380, "roll": 3.6, "pitch": 1.3}}, {"id": "f22", "name": "F-22A Raptor", "short": "F-22A", "nation": "usa", "tier": 5, "cost": 9000, "req": ["f15"], "role": "Stealth air dominance fighter", "crew": "1 pilot", "len": 18.92, "span": 13.56, "height": 5.08, "arms": {"ammo": 480, "msl": 6, "flr": 8}, "sweep": false, "seats": [[0, 0.9099999999999999, 5.23]], "flames": [{"x": 0.78, "y": 0.05, "z": -9, "r": 0.42, "sx": 2.2}, {"x": -0.78, "y": 0.05, "z": -9, "r": 0.42, "sx": 2.2}], "ground": -1.87, "handling": {"thrust": 52, "vmax": 410, "roll": 3.0, "pitch": 1.5}}, {"id": "f35", "name": "F-35A Lightning II", "short": "F-35A", "nation": "usa", "tier": 5, "cost": 8000, "req": ["f16", "f14"], "role": "Stealth multirole fighter", "crew": "1 pilot", "len": 15.67, "span": 10.7, "height": 4.38, "arms": {"ammo": 480, "msl": 6, "flr": 8}, "sweep": false, "seats": [[0, 0.94, 3.93]], "flames": [{"x": 0, "y": 0.05, "z": -7.85, "r": 0.5}], "ground": -1.85, "handling": {"thrust": 42, "vmax": 345, "roll": 2.8, "pitch": 1.25}}, {"id": "yak3", "name": "Yak-3", "short": "Yak-3", "nation": "ussr", "tier": 1, "cost": 0, "req": [], "role": "Light, agile WWII fighter", "crew": "1 pilot", "len": 8.5, "span": 9.2, "height": 2.39, "arms": {"ammo": 1400, "msl": 0, "flr": 0}, "sweep": false, "seats": [[0, 0.9489107142857143, -0.65]], "flames": [], "ground": -1.4, "handling": {"thrust": 14, "vmax": 200, "roll": 2.8, "pitch": 1.35}, "prop": true}, {"id": "mig15", "name": "MiG-15bis", "short": "MiG-15", "nation": "ussr", "tier": 2, "cost": 800, "req": ["yak3"], "role": "Korean War swept-wing jet", "crew": "1 pilot", "len": 10.1, "span": 10.1, "height": 3.7, "arms": {"ammo": 900, "msl": 0, "flr": 0}, "sweep": false, "seats": [[0, 1.0050624999999997, 1.5499999999999998]], "flames": [{"x": 0, "y": 0.05, "z": -5.1, "r": 0.312}], "ground": -1.7, "handling": {"thrust": 26, "vmax": 290, "roll": 2.8, "pitch": 1.3}}, {"id": "mig21", "name": "MiG-21bis", "short": "MiG-21", "nation": "ussr", "tier": 3, "cost": 2400, "req": ["mig15"], "role": "Fast delta-wing interceptor", "crew": "1 pilot", "len": 14.5, "span": 7.15, "height": 4.0, "arms": {"ammo": 640, "msl": 2, "flr": 4}, "sweep": false, "seats": [[0, 0.9013124999999998, 1.85]], "flames": [{"x": 0, "y": 0.03, "z": -7.4, "r": 0.34020000000000006}], "ground": -1.75, "handling": {"thrust": 38, "vmax": 370, "roll": 2.6, "pitch": 1.05}}, {"id": "mig29", "name": "MiG-29", "short": "MiG-29", "nation": "ussr", "tier": 4, "cost": 4800, "req": ["mig21"], "role": "Agile twin-engine fighter", "crew": "1 pilot", "len": 17.37, "span": 11.4, "height": 4.73, "arms": {"ammo": 600, "msl": 4, "flr": 6}, "sweep": false, "seats": [[0, 0.922, 4.05]], "flames": [{"x": 0.9974999999999999, "y": -0.15, "z": -8.735000000000001, "r": 0.42}, {"x": -0.9974999999999999, "y": -0.15, "z": -8.735000000000001, "r": 0.42}], "ground": -1.95, "handling": {"thrust": 47, "vmax": 395, "roll": 3.0, "pitch": 1.35}}, {"id": "su27", "name": "Su-27 Flanker", "short": "Su-27", "nation": "ussr", "tier": 4, "cost": 5200, "req": ["mig21"], "role": "Long-range air superiority fighter", "crew": "1 pilot", "len": 21.9, "span": 14.7, "height": 5.92, "arms": {"ammo": 600, "msl": 4, "flr": 6}, "sweep": false, "seats": [[0, 1.006, 5.85]], "flames": [{"x": 1.2825, "y": -0.15, "z": -11, "r": 0.42}, {"x": -1.2825, "y": -0.15, "z": -11, "r": 0.42}], "ground": -2.35, "handling": {"thrust": 47, "vmax": 400, "roll": 2.9, "pitch": 1.3}}, {"id": "su57", "name": "Su-57", "short": "Su-57", "nation": "ussr", "tier": 5, "cost": 9500, "req": ["su27", "mig29"], "role": "Stealth fighter with thrust vectoring", "crew": "1 pilot", "len": 20.1, "span": 14.1, "height": 4.6, "arms": {"ammo": 480, "msl": 6, "flr": 8}, "sweep": false, "seats": [[0, 0.964, 5.25]], "flames": [{"x": 1.3299999999999998, "y": -0.15, "z": -10.100000000000001, "r": 0.42}, {"x": -1.3299999999999998, "y": -0.15, "z": -10.100000000000001, "r": 0.42}], "ground": -2.05, "handling": {"thrust": 52, "vmax": 415, "roll": 3.1, "pitch": 1.55}}, {"id": "spitfire", "name": "Spitfire Mk IX", "short": "Spitfire", "nation": "eu", "tier": 1, "cost": 0, "req": [], "role": "Elliptical-wing WWII fighter", "crew": "1 pilot", "len": 9.47, "span": 11.23, "height": 3.86, "arms": {"ammo": 1400, "msl": 0, "flr": 0}, "sweep": false, "seats": [[0, 0.9984285714285713, -0.55]], "flames": [], "ground": -1.55, "handling": {"thrust": 14, "vmax": 205, "roll": 2.4, "pitch": 1.4}, "prop": true}, {"id": "bf109", "name": "Bf 109 G-6", "short": "Bf 109", "nation": "eu", "tier": 1, "cost": 300, "req": ["spitfire"], "role": "Fast-climbing WWII fighter", "crew": "1 pilot", "len": 9.02, "span": 9.92, "height": 2.6, "arms": {"ammo": 1400, "msl": 0, "flr": 0}, "sweep": false, "seats": [[0, 0.9736696428571429, -0.35]], "flames": [], "ground": -1.4, "handling": {"thrust": 15, "vmax": 205, "roll": 2.7, "pitch": 1.2}, "prop": true}, {"id": "hunter", "name": "Hawker Hunter F.6", "short": "Hunter", "nation": "eu", "tier": 2, "cost": 800, "req": ["spitfire", "bf109"], "role": "British swept-wing jet", "crew": "1 pilot", "len": 14.0, "span": 10.26, "height": 4.01, "arms": {"ammo": 900, "msl": 0, "flr": 0}, "sweep": false, "seats": [[0, 1.0193749999999997, 3.25]], "flames": [{"x": 0, "y": 0.05, "z": -7.05, "r": 0.33599999999999997}], "ground": -1.75, "handling": {"thrust": 28, "vmax": 305, "roll": 2.9, "pitch": 1.2}}, {"id": "mirage3", "name": "Mirage IIIE", "short": "Mirage III", "nation": "eu", "tier": 3, "cost": 2400, "req": ["hunter"], "role": "French delta-wing fighter", "crew": "1 pilot", "len": 15.03, "span": 8.22, "height": 4.5, "arms": {"ammo": 640, "msl": 2, "flr": 4}, "sweep": false, "seats": [[0, 0.9234765625, 2.8500000000000005]], "flames": [{"x": 0, "y": 0.03, "z": -7.665, "r": 0.36540000000000006}], "ground": -2, "handling": {"thrust": 37, "vmax": 370, "roll": 2.5, "pitch": 1.05}}, {"id": "mirage2000", "name": "Mirage 2000-5", "short": "Mirage 2000", "nation": "eu", "tier": 4, "cost": 4800, "req": ["mirage3"], "role": "Delta multirole fighter", "crew": "1 pilot", "len": 14.36, "span": 9.13, "height": 5.2, "arms": {"ammo": 600, "msl": 4, "flr": 6}, "sweep": false, "seats": [[0, 0.9459257812499999, 2.75]], "flames": [{"x": 0, "y": 0.03, "z": -7.33, "r": 0.37800000000000006}], "ground": -2.1, "handling": {"thrust": 44, "vmax": 390, "roll": 3.1, "pitch": 1.25}}, {"id": "rafale", "name": "Rafale C", "short": "Rafale", "nation": "eu", "tier": 5, "cost": 8500, "req": ["mirage2000"], "role": "Canard-delta omnirole fighter", "crew": "1 pilot", "len": 15.27, "span": 10.9, "height": 5.34, "arms": {"ammo": 480, "msl": 6, "flr": 8}, "sweep": false, "seats": [[0, 0.968375, 3.45]], "flames": [{"x": 0.372, "y": 0.03, "z": -7.785, "r": 0.2790000000000001}, {"x": -0.372, "y": 0.03, "z": -7.785, "r": 0.2790000000000001}], "ground": -2.3, "handling": {"thrust": 48, "vmax": 395, "roll": 3.3, "pitch": 1.4}}, {"id": "typhoon", "name": "Eurofighter Typhoon", "short": "Typhoon", "nation": "eu", "tier": 5, "cost": 8500, "req": ["mirage2000"], "role": "Canard-delta air superiority fighter", "crew": "1 pilot", "len": 15.96, "span": 10.95, "height": 5.28, "arms": {"ammo": 480, "msl": 6, "flr": 8}, "sweep": false, "seats": [[0, 0.968375, 3.6500000000000004]], "flames": [{"x": 0.384, "y": 0.03, "z": -8.13, "r": 0.2880000000000001}, {"x": -0.384, "y": 0.03, "z": -8.13, "r": 0.2880000000000001}], "ground": -2.25, "handling": {"thrust": 50, "vmax": 405, "roll": 3.2, "pitch": 1.4}}];
 const JET = Object.fromEntries(JETS.map(j => [j.id, j]));
 const store = { get: k => { try { return localStorage.getItem(k); } catch { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
 if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
@@ -505,7 +536,7 @@ async function makeJet(id, local) {
   const g = await loadModel(id), info = JET[id];
   const root = g.scene.clone(true);
   const cockpit = root.getObjectByName('Cockpit'); if (cockpit && !local) cockpit.visible = false;
-  const inst = { id, info, root, wingL: root.getObjectByName('WingL'), wingR: root.getObjectByName('WingR'), weapons: root.getObjectByName('Weapons'), flames: [], gearDown: true };
+  const inst = { id, info, root, prop: root.getObjectByName('Prop'), wingL: root.getObjectByName('WingL'), wingR: root.getObjectByName('WingR'), weapons: root.getObjectByName('Weapons'), flames: [], gearDown: true };
   for (const f0 of info.flames) {
     const f = new THREE.Mesh(new THREE.ConeGeometry(f0.r, 3, 10), new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.85, depthWrite: false }));
     f.rotation.x = -Math.PI / 2; f.position.set(f0.x, f0.y, f0.z - 1.5); f.scale.x = f0.sx || 1; f.userData.sx = f0.sx || 1; f.visible = false;
@@ -647,7 +678,7 @@ function connect() {
   if (!/^https?:$/.test(location.protocol)) { $('netStatus').textContent = 'Offline copy: only practice mode works. Open the game website to play with friends.'; return; }
   const ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + '/ws');
   net.ws = ws;
-  ws.onopen = () => { net.connected = true; $('netStatus').textContent = 'Connected to the Frankfurt server.'; send({ t: 'hello', name: myName(), jet: myJet }); for (const m of net.queue) send(m); net.queue = []; };
+  ws.onopen = () => { net.connected = true; $('netStatus').textContent = 'Connected to the Frankfurt server.'; send({ t: 'hello', name: myName() }); for (const m of net.queue) send(m); net.queue = []; };
   ws.onmessage = e => { let m; try { m = JSON.parse(e.data); } catch { return; } onServer(m); };
   ws.onclose = () => {
     net.connected = false; $('netStatus').textContent = 'Connection lost. Reconnecting…';
@@ -662,17 +693,57 @@ function send(m) {
 const myName = () => ($('name').value.trim() || 'Pilot').slice(0, 16);
 
 // ================= Menu and lobby
-let party = null, myJet = store.get('sb_jet') || 'f14', myTeam = 0, inMatch = false, matchCfg = null, endsAt = 0;
-if (!JET[myJet]) myJet = 'f14';
+let party = null, myJet = store.get('sb_jet') || 'p51', myTeam = 0, inMatch = false, matchCfg = null, endsAt = 0;
+let profile = null;                                   // { name, xp, totalXp, unlocked[] } when logged in
+const STARTERS = JETS.filter(j => j.cost === 0).map(j => j.id);
+const owned = () => profile ? profile.unlocked : STARTERS;
+if (!JET[myJet] || !owned().includes(myJet)) myJet = STARTERS[0];
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V'], NATION = { usa: 'USA', ussr: 'USSR', eu: 'Europe' };
+function renderAccount() {
+  $('authBox').style.display = profile ? 'none' : 'grid'; $('mainBox').style.display = profile ? 'grid' : 'none';
+  if (profile) { $('meName').textContent = profile.name; $('meXp').textContent = profile.xp.toLocaleString('en') + ' XP'; }
+  renderJetPicker(); if ($('tree').classList.contains('on')) renderTree();
+}
+function renderJetPicker() {
+  const list = JETS.filter(j => owned().includes(j.id));
+  $('jets').innerHTML = list.map(j => `<button class="jet" data-id="${j.id}"><b>${j.short}</b><small>Tier ${ROMAN[j.tier]} · ${NATION[j.nation]}</small></button>`).join('');
+  renderJetInfo();
+}
+function renderTree() {
+  const xp = profile ? profile.xp : 0;
+  $('treeXp').textContent = profile ? xp.toLocaleString('en') + ' XP to spend' : 'Log in to earn XP';
+  let h = '<div></div>' + [1, 2, 3, 4, 5].map(t => `<div class="th">Tier ${ROMAN[t]}</div>`).join('');
+  for (const n of ['usa', 'ussr', 'eu']) {
+    h += `<div class="nat">${NATION[n]}</div>`;
+    for (let t = 1; t <= 5; t++) {
+      h += '<div class="tcell">' + JETS.filter(j => j.nation === n && j.tier === t).map(j => {
+        const own = owned().includes(j.id), reqOk = !j.req.length || j.req.some(r => owned().includes(r)), can = !own && profile && reqOk && xp >= j.cost;
+        const st = own ? (j.id === myJet ? 'Selected' : 'Owned · click to fly') : !reqOk ? 'Needs ' + j.req.map(r => JET[r].short).join(' or ') : can ? `Unlock · ${j.cost.toLocaleString('en')} XP` : `${j.cost.toLocaleString('en')} XP`;
+        return `<button class="tcard ${own ? 'own' : can ? 'can' : reqOk ? '' : 'lock'} ${j.id === myJet ? 'sel' : ''}" data-id="${j.id}"><b>${j.short}</b><small>${j.role}</small><span class="st">${st}</span></button>`;
+      }).join('') + '</div>';
+    }
+  }
+  $('tgrid').innerHTML = h;
+}
+$('tgrid').addEventListener('click', e => {
+  const b = e.target.closest('.tcard'); if (!b) return; const j = JET[b.dataset.id];
+  if (owned().includes(j.id)) { pickJet(j.id); renderTree(); return; }
+  if (!profile) return toast('Log in to unlock planes.');
+  if (b.classList.contains('can')) send({ t: 'unlock', plane: j.id }); else toast(j.req.length && !j.req.some(r => owned().includes(r)) ? 'Unlock ' + j.req.map(r => JET[r].short).join(' or ') + ' first.' : `You need ${(j.cost - profile.xp).toLocaleString('en')} more XP.`);
+});
+const openTree = () => { renderTree(); $('tree').classList.add('on'); };
+$('bTree').onclick = openTree; $('bTree2').onclick = openTree; $('bTreeClose').onclick = () => $('tree').classList.remove('on');
+const authMsg = t => $('authMsg').textContent = t;
+$('authBox').addEventListener('submit', e => { e.preventDefault(); sfx.unlock(); if (!net.connected) return authMsg('Not connected to the server yet.'); authMsg('Logging in…'); send({ t: 'login', name: $('name').value, pass: $('pass').value }); });
+$('bRegister').onclick = () => { sfx.unlock(); if (!net.connected) return authMsg('Not connected to the server yet.'); authMsg('Creating your account…'); send({ t: 'register', name: $('name').value, pass: $('pass').value }); };
+$('bLogout').onclick = () => { send({ t: 'logout', token: store.get('sb_token') }); store.set('sb_token', ''); profile = null; renderAccount(); };
 $('name').value = store.get('sb_name') || '';
-$('name').addEventListener('change', () => { store.set('sb_name', myName()); send({ t: 'hello', name: myName() }); });
-$('bCreate').onclick = () => { sfx.unlock(); store.set('sb_name', myName()); send({ t: 'hello', name: myName(), jet: myJet }); send({ t: 'create' }); };
-$('bJoin').onclick = () => { sfx.unlock(); const c = $('joinCode').value.trim().toUpperCase(); if (c.length !== 5) return toast('Party codes have 5 letters.'); store.set('sb_name', myName()); send({ t: 'hello', name: myName(), jet: myJet }); send({ t: 'join', code: c }); };
+$('bCreate').onclick = () => { sfx.unlock(); send({ t: 'create' }); setTimeout(() => send({ t: 'set', jet: myJet }), 300); };
+$('bJoin').onclick = () => { sfx.unlock(); const c = $('joinCode').value.trim().toUpperCase(); if (c.length !== 5) return toast('Party codes have 5 letters.'); send({ t: 'join', code: c }); setTimeout(() => send({ t: 'set', jet: myJet }), 300); };
 $('joinCode').addEventListener('keydown', e => { if (e.key === 'Enter') $('bJoin').click(); });
 $('bPractice').onclick = () => { sfx.unlock(); practice.start(); };
 $('bLeave').onclick = () => { send({ t: 'leave' }); leaveToMenu(); };
 $('bCopy').onclick = async () => { try { await navigator.clipboard.writeText(party.code); toast('Party code copied: ' + party.code); } catch { toast('Party code: ' + party.code); } };
-$('jets').innerHTML = JETS.map(j => `<button class="jet" data-id="${j.id}"><b>${j.short}</b><small>${j.role}</small></button>`).join('');
 $('jets').addEventListener('click', e => { const b = e.target.closest('.jet'); if (b) pickJet(b.dataset.id); });
 $('tBlue').onclick = () => send({ t: 'set', team: 0 }); $('tRed').onclick = () => send({ t: 'set', team: 1 });
 $('bReady').onclick = () => { const me = party && party.members.find(m => m.id === net.id); send({ t: 'set', ready: !(me && me.ready) }); };
@@ -686,7 +757,7 @@ function pickJet(id) {
   showHangarJet(id); renderJetInfo();
 }
 function renderJetInfo() {
-  const j = JET[myJet]; $('jetName').textContent = j.name; $('jetRole').textContent = `${j.role} · ${j.len} m long · ${j.span} m span · ${j.crew}`;
+  const j = JET[myJet]; $('jetName').textContent = j.name; $('jetRole').textContent = `Tier ${ROMAN[j.tier]} · ${NATION[j.nation]} · ${j.role} · ${j.len} m long · ${j.span} m span · ${j.arms.msl ? j.arms.msl + ' missiles' : 'guns only'}`;
   for (const b of document.querySelectorAll('.jet')) b.setAttribute('aria-pressed', b.dataset.id === myJet);
 }
 let hangarJet = null, hangarSeq = 0;
@@ -701,7 +772,7 @@ function renderLobby() {
   const me = party.members.find(m => m.id === net.id) || {}, host = party.host === net.id, tdm = party.settings.mode === 'tdm';
   myTeam = me.team ?? 0;
   $('pCode').textContent = party.code; $('pCount').textContent = `(${party.members.length})`;
-  $('members').innerHTML = party.members.map(m => `<li><span class="dot" style="background:${tdm ? (m.team ? 'var(--red)' : 'var(--blue)') : 'var(--hot)'}"></span><span>${esc(m.name)}${m.id === party.host ? ' <span class="tagr">host</span>' : ''}${m.id === net.id ? ' <span class="tagr">you</span>' : ''}</span><span class="tagr ${m.ready ? 'ready' : ''}">${JET[m.jet]?.short || ''} · ${m.ready ? 'Ready' : 'Not ready'}</span></li>`).join('');
+  $('members').innerHTML = party.members.map(m => `<li><span class="dot" style="background:${tdm ? (m.team ? 'var(--red)' : 'var(--blue)') : 'var(--hot)'}"></span><span>${esc(m.name)}${m.id === party.host ? ' <span class="tagr">host</span>' : ''}${m.id === net.id ? ' <span class="tagr">you</span>' : ''}</span><span class="tagr ${m.ready ? 'ready' : ''}">${JET[m.jet] ? JET[m.jet].short + ' (' + ROMAN[JET[m.jet].tier] + ')' : ''} · ${m.ready ? 'Ready' : 'Not ready'}</span></li>`).join('');
   $('teamRow').hidden = !tdm;
   $('tBlue').setAttribute('aria-pressed', myTeam === 0); $('tRed').setAttribute('aria-pressed', myTeam === 1);
   $('bReady').setAttribute('aria-pressed', !!me.ready); $('bReady').textContent = me.ready ? 'Ready ✓' : 'Ready';
@@ -725,7 +796,21 @@ function leaveToMenu() {
 // ================= Server messages
 function onServer(m) {
   switch (m.t) {
-    case 'welcome': net.id = m.id; break;
+    case 'welcome': net.id = m.id; { const tk = store.get('sb_token'); if (tk && !profile) send({ t: 'resume', token: tk }); } break;
+    case 'auth':
+      if (m.loggedOut) break;
+      if (m.error) { if (m.quiet) { store.set('sb_token', ''); break; } authMsg(m.error); break; }
+      profile = m.profile; store.set('sb_token', m.token); store.set('sb_name', profile.name);
+      if (!owned().includes(myJet)) myJet = profile.unlocked[0];
+      renderAccount(); toast('Welcome, ' + profile.name + '!'); break;
+    case 'profile':
+      profile = m.profile; renderAccount();
+      if (m.unlocked) { toast(JET[m.unlocked].name + ' unlocked!', 3000); pickJet(m.unlocked); }
+      break;
+    case 'xp':
+      profile = m.profile; renderAccount();
+      $('boardXp').innerHTML = `<b class="xp">+${m.gained} XP</b> <span class="muted">${m.parts.map(p => p[0] + ' +' + p[1]).join(' · ')}</span>`;
+      break;
     case 'error': toast(m.msg, 4000); break;
     case 'joined': if (!m.code) { party = null; show('menu'); } break;
     case 'party': {
@@ -777,7 +862,7 @@ async function spawnMe(sp) {
   updateExtras(sp.x, sp.z, 0);
   player.root.quaternion.setFromAxisAngle(UP, sp.heading);
   aimDir.set(0, 0, 1).applyQuaternion(player.root.quaternion); aimActive = false;
-  player.root.visible = true; player.alive = true; player.hp = 100; player.ammo = 600; player.msl = 4; player.flr = 6; mslRegen = 0;
+  player.root.visible = true; player.alive = true; player.hp = 100; const ar = player.inst.info.arms; player.ammo = ar.ammo; player.msl = ar.msl; player.flr = ar.flr; mslRegen = 0;
   Object.assign(player.st, { v: 210, thr: 0.5, p: 0, r: 0, y: 0 });
   setGear(player.inst, false, true); updateTiles(sp.x, sp.z, 1e9);
   $('dead').classList.remove('on'); setView(view); deadUntil = 0;
@@ -795,7 +880,8 @@ function onEnd(m) {
   show('lobby'); hangar.visible = true;
   $('boardTitle').textContent = m.winner === 'Draw' ? 'Draw!' : m.winner + ' wins!';
   fillBoard(m.board, m.teamScore);
-  $('boardBtns').innerHTML = '<button class="main" id="bBoardOk">Back to the hangar</button>';
+  $('boardBtns').innerHTML = '<div id="boardXp" style="width:100%;text-align:center;margin-bottom:8px"></div><button class="main" id="bBoardOk">Back to the hangar</button><button id="bBoardTree">Tech tree</button>';
+  $('bBoardTree').onclick = () => { $('board').classList.remove('on'); openTree(); };
   $('bBoardOk').onclick = () => $('board').classList.remove('on');
   $('board').classList.add('on');
 }
@@ -1002,9 +1088,10 @@ function fly(dt) {
   let best = null, bestA = 0.245;
   for (const o of allTargets()) { tv.subVectors(o.pos, r.position); const d = tv.length(); if (d < 250 || d > 4500) continue; const a = fwd.angleTo(tv); if (a < bestA) { bestA = a; best = o; } }
   if (best && best.id === lock.id) lock.t += dt; else { lock = { id: best ? best.id : null, t: 0, locked: false }; }
+  if (!player.inst.info.arms.msl) { best = null; lock = { id: null, t: 0, locked: false }; }
   lock.locked = !!best && lock.t > 1.1;
   sfx.lock(best ? (lock.locked ? 2 : 1) : 0);
-  if (player.msl < 4 && (mslRegen += dt) > 25) { player.msl++; mslRegen = 0; }
+  if (player.msl < player.inst.info.arms.msl && (mslRegen += dt) > 25) { player.msl++; mslRegen = 0; }
   // Wing sweep, afterburner, damage smoke
   const kt = st.v * 1.944;
   if (player.inst.info.sweep) setSweep(player.inst, THREE.MathUtils.clamp((kt - 330) / (620 - 330), 0, 1) * 48);
@@ -1105,7 +1192,7 @@ function updateHud() {
   }
   for (let i = used; i < pips.children.length; i++) pips.children[i].style.display = 'none';
   $('hHp').style.width = Math.max(0, player.hp) + '%'; $('hHp').style.background = player.hp > 50 ? 'var(--ok)' : player.hp > 25 ? '#ffc840' : 'var(--red)';
-  $('hGun').textContent = 'GUN ' + player.ammo; $('hMsl').textContent = 'MSL ' + player.msl + (lock.locked ? ' LOCK' : ''); $('hFlr').textContent = 'FLR ' + player.flr;
+  $('hGun').textContent = 'GUN ' + player.ammo; const ar = player.inst ? player.inst.info.arms : { msl: 1, flr: 1 }; $('hMsl').textContent = ar.msl ? 'MSL ' + player.msl + (lock.locked ? ' LOCK' : '') : ''; $('hFlr').textContent = ar.flr ? 'FLR ' + player.flr : '';
   $('hJet').textContent = player.inst ? player.inst.info.short : '';
   // Score + timer
   const left = Math.max(0, (endsAt - Date.now() - (net.practice ? 0 : (net.offset || 0) * 0)) / 1000);
@@ -1224,7 +1311,7 @@ const practice = (() => {
     const x = (player.root ? player.root.position.x : 0) + Math.cos(a) * d, z = (player.root ? player.root.position.z : 0) + Math.sin(a) * d;
     b.root.position.set(x, groundAt(x, z) + 800 + Math.random() * 600, z);
     b.root.quaternion.setFromAxisAngle(UP, Math.random() * Math.PI * 2);
-    b.alive = true; b.hp = 100; b.root.visible = true; b.speed = 220; b.mslCool = 8 + Math.random() * 10;
+    b.alive = true; b.hp = 100; b.root.visible = true; b.speed = b.info ? b.info.handling.vmax * 0.6 : 220; b.mslCool = 8 + Math.random() * 10;
   };
   P.start = async () => {
     net.practice = true; P.running = true; P.kills = 0; P.deaths = 0; net.id = net.id || 'me';
@@ -1235,7 +1322,7 @@ const practice = (() => {
     for (const b of P.bots) scene.remove(b.root);
     P.bots = []; P.botMissiles = [];
     for (let i = 0; i < 4; i++) {
-      const jet = JETS[(i + 1) % JETS.length].id, inst = await makeJet(jet, false);
+      const myT = JET[myJet].tier, pool = JETS.filter(j => Math.abs(j.tier - myT) <= (myT === 1 ? 0 : 1)), jet = pool[(i * 3 + Math.floor(Math.random() * pool.length)) % pool.length].id, inst = await makeJet(jet, false);
       setGear(inst, false, true); scene.add(inst.root);
       const b = { id: nextBotId++, name: NAMES[i], jet, inst, root: inst.root, vel: new THREE.Vector3(), kills: 0, deaths: 0, gunT: 0, info: JET[jet] };
       spawnBot(b); P.bots.push(b);
@@ -1292,7 +1379,7 @@ const practice = (() => {
       up2.copy(UP).addScaledVector(lft, -lat * 2.2).normalize();
       lft.crossVectors(up2, f3).normalize(); up2.crossVectors(f3, lft).normalize();
       mtx.makeBasis(lft, up2, f3); q1.setFromRotationMatrix(mtx); r.quaternion.slerp(q1, 1 - Math.exp(-dt * 4));
-      b.speed = THREE.MathUtils.clamp(b.speed + (-9.81 * f3.y * 0.8 + (240 - b.speed) * 0.2) * dt, 140, 330);
+      const vC = b.info.handling.vmax * 0.62; b.speed = THREE.MathUtils.clamp(b.speed + (-9.81 * f3.y * 0.8 + (vC - b.speed) * 0.2) * dt, vC * 0.55, b.info.handling.vmax);
       b.vel.copy(f3).multiplyScalar(b.speed); r.position.addScaledVector(b.vel, dt);
       if (r.position.y < groundAt(r.position.x, r.position.z) + 3 || (map.collide && map.collide(r.position))) { P.hit(b, 'missile'); P.hit(b, 'missile'); continue; }
       for (const f of b.inst.flames) f.visible = b.speed > 290;
@@ -1366,11 +1453,12 @@ renderer.setAnimationLoop(() => {
     camera.position.set(Math.sin(a) * L * 1.15, L * 0.38, Math.cos(a) * L * 1.15); camera.up.set(0, 1, 0); camera.lookAt(0, -0.5, 0);
     camera.fov = 46; camera.updateProjectionMatrix();
   }
-  for (const b of [player.inst, ...(net.practice ? practice.bots.map(b => b.inst) : [...others.values()].map(o => o.inst))]) if (b) for (const f of b.flames) f.scale.set(f.userData.sx, 0.85 + 0.15 * Math.sin(t * 30 + f.id), 1);
+  for (const b of [player.inst, ...(net.practice ? practice.bots.map(b => b.inst) : [...others.values()].map(o => o.inst))]) if (b) { for (const f of b.flames) f.scale.set(f.userData.sx, 0.85 + 0.15 * Math.sin(t * 30 + f.id), 1); if (b.prop) b.prop.rotation.z += dt * (b === player.inst ? 25 + 45 * player.st.thr : 50); }
+  if (hangarJet && hangarJet.prop) hangarJet.prop.rotation.z += dt * 6;
   updateBullets(dt); updateParticles(dt);
   renderer.render(scene, camera);
 });
-showHangarJet(myJet); renderJetInfo(); connect();
+showHangarJet(myJet); renderAccount(); connect();
 }
 </script>
 </body>

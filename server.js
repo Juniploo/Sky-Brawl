@@ -3,6 +3,7 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
+const acc = require('./accounts');
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC = path.join(__dirname, 'public');
@@ -22,7 +23,7 @@ const server = http.createServer((req, res) => {
 });
 
 // ---------------- Game state
-const JETS = ['f14', 'f15', 'f16', 'f22', 'f35'];
+const JETS = acc.PLANES.map(p => p.id);
 const MAPS = ['islands', 'canyon', 'alps', 'volcano', 'arctic', 'sky'];
 const players = new Map();   // id -> player
 const parties = new Map();   // code -> party
@@ -98,6 +99,14 @@ function endMatch(party) {
   if (party.settings.mode === 'tdm') { const [a, b] = party.match.teamScore; winner = a === b ? 'Draw' : (a > b ? 'Blue team' : 'Red team'); }
   else { const best = ms.slice().sort((a, b) => b.kills - a.kills || a.deaths - b.deaths)[0]; winner = best ? best.name : 'Nobody'; }
   broadcast(party, { t: 'end', winner, teamScore: party.match.teamScore, board: ms.map(p => ({ id: p.id, name: p.name, team: p.team, jet: p.jet, kills: p.kills, deaths: p.deaths })) });
+  // XP: 60 for playing, 150 per kill, 200 for winning
+  const won = p => party.settings.mode === 'tdm' ? (party.match.teamScore[p.team] > party.match.teamScore[1 - p.team]) : p.name === winner;
+  for (const p of ms) {
+    if (!p.user) continue;
+    const parts = [['Played the match', 60], ...(p.kills ? [[`${p.kills} kill${p.kills > 1 ? 's' : ''}`, 150 * p.kills]] : []), ...(won(p) ? [['Victory', 200]] : [])];
+    const gained = parts.reduce((a, x) => a + x[1], 0);
+    acc.award(p.user, gained).then(() => send(p, { t: 'xp', gained, parts, profile: acc.profile(p.user) })).catch(e => console.error('award', e.message));
+  }
   party.state = 'lobby'; party.match = null;
   for (const p of ms) { p.ready = false; p.alive = false; }
   pushParty(party);
@@ -120,14 +129,32 @@ const dist = (a, b) => Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1], a.p[2] - b.p
 function onMessage(p, m) {
   const party = parties.get(p.party);
   switch (m.t) {
-    case 'hello': p.name = clean(m.name, 16) || 'Pilot ' + p.id; if (JETS.includes(m.jet)) p.jet = m.jet; send(p, { t: 'welcome', id: p.id, name: p.name }); break;
+    case 'hello': if (!p.user) p.name = clean(m.name, 16) || 'Pilot ' + p.id; send(p, { t: 'welcome', id: p.id, name: p.name, db: acc.usingDatabase }); break;
+    case 'register': case 'login': case 'resume': {
+      if (m.t !== 'resume' && (p.authTries = (p.authTries || 0) + 1) > 20) return send(p, { t: 'auth', error: 'Too many tries. Reload the page and try again.' });
+      const r = m.t === 'register' ? acc.register(m.name, m.pass) : m.t === 'login' ? acc.login(m.name, m.pass) : acc.resume(m.token);
+      r.then(res => {
+        if (res.error) return send(p, { t: 'auth', error: res.error, quiet: m.t === 'resume' });
+        p.user = res.user; p.name = res.user.name;
+        if (!p.user.unlocked.includes(p.jet)) p.jet = p.user.unlocked[0];
+        send(p, { t: 'auth', ok: true, token: res.token || m.token, profile: acc.profile(p.user) });
+      }).catch(e => { console.error('auth', e.message); send(p, { t: 'auth', error: 'The server could not reach the database. Try again in a moment.' }); });
+      break;
+    }
+    case 'logout': if (party) leaveParty(p); acc.logout(m.token).catch(() => {}); p.user = null; send(p, { t: 'auth', loggedOut: true }); break;
+    case 'unlock':
+      if (!p.user) return send(p, { t: 'error', msg: 'Log in to unlock planes.' });
+      acc.unlock(p.user, m.plane).then(r => send(p, r.error ? { t: 'error', msg: r.error } : { t: 'profile', profile: acc.profile(p.user), unlocked: m.plane })).catch(e => send(p, { t: 'error', msg: 'Could not save that. Try again.' }));
+      break;
     case 'create': {
+      if (!p.user) return send(p, { t: 'error', msg: 'Log in or create an account first.' });
       if (p.party) leaveParty(p);
       const code = newCode();
       const np = { code, host: p.id, members: [], state: 'lobby', settings: { mode: 'tdm', map: 'islands', scoreLimit: 10, minutes: 10 }, match: null };
       parties.set(code, np); joinParty(p, np); break;
     }
     case 'join': {
+      if (!p.user) return send(p, { t: 'error', msg: 'Log in or create an account first.' });
       const target = parties.get(clean(m.code, 5).toUpperCase());
       if (!target) return send(p, { t: 'error', msg: 'No party with that code. Check the code and try again.' });
       joinParty(p, target); break;
@@ -135,7 +162,7 @@ function onMessage(p, m) {
     case 'leave': leaveParty(p); send(p, { t: 'joined', code: null }); break;
     case 'set':
       if (!party) return;
-      if (JETS.includes(m.jet) && !(party.state === 'match' && p.alive)) p.jet = m.jet;
+      if (JETS.includes(m.jet) && p.user && p.user.unlocked.includes(m.jet) && !(party.state === 'match' && p.alive)) p.jet = m.jet;
       if (m.team === 0 || m.team === 1) p.team = m.team;
       if (typeof m.ready === 'boolean') p.ready = m.ready;
       pushParty(party); break;
@@ -204,7 +231,7 @@ setInterval(() => {
 
 const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 16 * 1024 });
 wss.on('connection', ws => {
-  const p = { id: nextId++, ws, name: 'Pilot', jet: 'f14', team: 0, ready: false, party: null, kills: 0, deaths: 0, hp: 100, alive: false, state: null, alivePing: Date.now() };
+  const p = { id: nextId++, ws, name: 'Pilot', jet: acc.STARTERS[0], user: null, team: 0, ready: false, party: null, kills: 0, deaths: 0, hp: 100, alive: false, state: null, alivePing: Date.now() };
   players.set(p.id, p);
   ws.on('message', data => { p.alivePing = Date.now(); let m; try { m = JSON.parse(data); } catch { return; } if (m && typeof m.t === 'string') onMessage(p, m); });
   ws.on('close', () => { leaveParty(p); players.delete(p.id); });
@@ -213,4 +240,5 @@ wss.on('connection', ws => {
 // Keep connections healthy through proxies
 setInterval(() => { for (const ws of wss.clients) { if (ws.readyState === 1) ws.ping(); } }, 25000);
 
-server.listen(PORT, '0.0.0.0', () => console.log('Sky Brawl server on port ' + PORT));
+acc.init().then(() => server.listen(PORT, '0.0.0.0', () => console.log('Sky Brawl server on port ' + PORT + (acc.usingDatabase ? ' (database)' : ' (memory store)'))))
+  .catch(e => { console.error('Database setup failed:', e.message); process.exit(1); });
